@@ -6,6 +6,8 @@ Investigation: 17 November 2026. Local implementation branch: `codex/native-lyri
 
 **Subsequent implementation:** A native fixed-widget candidate is now implemented and built; see [the panel test-build report](FIXED_LYRIC_PANEL_TEST_BUILD.md). The investigation's references to the delivered APK without a provider describe the earlier SHA-256 `ac5221f7…` build. The new `b9fe409a…` build contains a provider, but the requested Samsung positions and live AOD refresh remain unverified and unimplemented as a validated integration.
 
+**Subsequent user-device result:** The user reports that AirLyrics Panel is not listed in the standard Samsung lock-screen picker and supplies an image of that picker. This is a failed listing check for the tested setup; it is not proof that every Samsung-hosted surface is unavailable. A separately verified home-screen listing and optional LockStar host check remain useful. Samsung's [third-party widget instructions](https://www.samsung.com/levant/mobile-phone-buying-guide/what-are-widgets/) specifically reference Good Lock / LockStar; current A25 host availability has not been established. See the test-build follow-up for the evidence boundary. No application-code change or rebuild was justified solely by these screenshots.
+
 The desired presentation is a compact, fixed rectangular lyric panel, not the movable overlay used while unlocked. It must remain visible during the relevant playback session without tapping a notification or expanding a card.
 
 | Surface | Requested placement and appearance |

@@ -2,6 +2,16 @@
 
 This build adds a real, passive Android app widget with a compact two-line layout and artwork-derived colors. It is a candidate surface for a system widget host. **It does not establish Samsung lock-screen placement or live AOD support, and it does not yet deliver the user's requested system-screen integration.** No new live-AOD mode is enabled.
 
+## Device follow-up: standard Samsung picker does not list the widget
+
+On 17 November 2026 the user reported that AirLyrics Panel is absent and supplied screenshots of the Samsung lock-screen widget picker and interactive lock screen. The visible alphabetical list starts with Battery, Calendar, Camera, Clock and Device care, without AirLyrics Panel. The second screenshot shows the existing lyric notification above a separate media player; that is not the requested fixed panel. Neither screenshot establishes AOD rendering. The installed APK version is not visible in those images.
+
+The standard picker route has therefore failed for the tested setup. Do not repeatedly direct the user to that same picker or infer that the presence of a standard `keyguard` declaration guarantees listing. A home-screen widget-picker check can separately establish whether the new provider is installed/registered.
+
+Samsung's [own third-party widget guidance](https://www.samsung.com/levant/mobile-phone-buying-guide/what-are-widgets/) directs users to Good Lock and its LockStar module. This is an **optional host investigation**, not a new dependency or a compatibility claim. Check whether the current LockStar on the actual A25 offers **App widgets / Add widget** and lists AirLyrics Panel. Older walkthroughs and a store listing do not prove that option remains available on this exact firmware. If it is available, placement above the player must still be tested. If absent, report that route unavailable rather than supplying invented menu instructions or another unchanged APK.
+
+Even a successful LockStar placement would not enable live AOD text in this build: its coordinator deliberately stops ambient lyric prediction. Host acceptance, interactive lock-screen updates, AOD visibility and dynamic AOD refresh are separate checks.
+
 ## Implemented behavior
 
 - Same APK and selected real media source as the existing lyrics service. No replacement media player/session.
