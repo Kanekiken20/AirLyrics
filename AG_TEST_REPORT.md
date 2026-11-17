@@ -553,5 +553,35 @@ Using JDK 21 (`jdk-21.0.13+9`) and Gradle 9.8.2, a clean debug build was compile
 ### 3. Git Synchronization
 All code changes, layout definitions, drawables, and test documentation are committed and pushed to branch `ag/device-testing` on `Kanekiken20/AirLyrics`.
 
+---
+
+## 12. Direct Bytecode Patch of Baseline `airlyrics-test-samsung-probe.apk`
+
+Per user directive, `airlyrics-test-samsung-probe.apk` was established as the primary baseline test application. The binary was decompiled, precisely patched in `classes4.dex`, reassembled via Apktool, aligned, and signed with a persistent test keystore.
+
+### 1. Root Causes Resolved in Bytecode (`classes4.dex`)
+1. **Suppression Guard Removal (`FixedLyricsPanel$Companion.smali`)**:
+   - Location: Method `presentation(Landroid/content/Context;)Lcom/andsi/airlyrics/floating/FixedLyricsPanel$Presentation;`
+   - Replaced conditional branch `if-nez v1, :cond_2` with unconditional `goto :cond_2`.
+   - Result: Bypasses string resource `0x7f0f0286` (`ui_panel_ambient` / `"Live AOD unavailable"`) and routes directly to the cached active lyric line and track attribution.
+2. **AOD Sync & Observation Continuation (`FloatingServicePresentationKt.smali`)**:
+   - Location: Method `isInteractiveLyricsScreen(Lcom/andsi/airlyrics/floating/FloatingLyricsService;)Z`
+   - Modified logic so `isInteractiveLyricsScreen` evaluates `true` for `LyricsScreenClass.DOZE` and `LyricsScreenClass.DOZE_SUSPEND` (Always-On Display states), and only returns `false` when the display is physically off (`LyricsScreenClass.OFF`).
+   - Result: Media observation, active lyric synchronization ticks, and RemoteViews complication updates continue streaming smoothly while the device rests on the Always-On Display.
+
+### 2. Patched Baseline APK Artifact
+- **Source File:** `C:\Users\user.20\Downloads\airlyrics-test-samsung-probe.apk`
+- **Patched Output:** `C:\Users\user.20\Downloads\airlyrics-test-samsung-probe-patched.apk`
+- **File Size:** `20,892,468 bytes`
+- **SHA-256 Digest:**
+  ```text
+  E81D5EF3D4BA9A7EEE29A8993DC1923597BCAD7F3E540A94149479CCE538D57B
+  ```
+- **Signing Keystore:** `airlyrics-test-debug.jks` (`CN=Android Debug, O=Android, C=US`)
+- **Signer SHA-256:** `c761e26e6da1c2e1e9752564dda10b48ad596a556fb02dfa5a60c6f2663b0fab`
+- **Target Package:** `com.andsi.airlyrics.sandbox` (`versionName=1.2.10-test-samsung-probe`, `versionCode=21`)
+- **Safety Status:** Production package `com.andsi.airlyrics` (`UID 10292`) remains strictly isolated and untouched. All in-place updates use `adb install -r -d` with zero widget binding loss.
+
+
 
 
