@@ -49,6 +49,18 @@ class LyricsDisplaySettingsStoreTest {
         assertEquals(LockScreenLyricPrivacy.PRIVATE, LockScreenLyricPrivacy.fromKey(null))
     }
 
+    @Test fun panelColorsRoundTripAndInvisibleTextAlphaIsRejected() {
+        LyricsDisplaySettingsStore.setPanelAlbumColors(context, false)
+        LyricsDisplaySettingsStore.setPanelTransparent(context, false)
+        LyricsDisplaySettingsStore.setPanelColor(context, true, 0x0000FF00)
+        LyricsDisplaySettingsStore.setPanelColor(context, false, 0x000000FF)
+        val settings = LyricsDisplaySettingsStore.get(context)
+        assertFalse(settings.panelAlbumColors)
+        assertFalse(settings.panelTransparent)
+        assertEquals(0xFF00FF00.toInt(), settings.panelTextColor)
+        assertEquals(0xFF0000FF.toInt(), settings.panelBackgroundColor)
+    }
+
     @Test fun panelOptInIsIndependentOfNotificationOptIn() {
         LyricsDisplaySettingsStore.setPanelEnabled(context, true)
         assertTrue(LyricsDisplaySettingsStore.get(context).panelEnabled)
@@ -57,5 +69,14 @@ class LyricsDisplaySettingsStoreTest {
         LyricsDisplaySettingsStore.setPanelEnabled(context, false)
         assertFalse(LyricsDisplaySettingsStore.get(context).panelEnabled)
         assertTrue(LyricsDisplaySettingsStore.get(context).enabled)
+    }
+
+    @Test fun firstWidgetPlacementEnablesPanelButPreservesPrivacyAndAnExplicitOffChoice() {
+        LyricsDisplaySettingsStore.enablePanelOnFirstPlacement(context)
+        assertTrue(LyricsDisplaySettingsStore.get(context).panelEnabled)
+        assertEquals(LockScreenLyricPrivacy.PRIVATE, LyricsDisplaySettingsStore.get(context).privacy)
+        LyricsDisplaySettingsStore.setPanelEnabled(context, false)
+        LyricsDisplaySettingsStore.enablePanelOnFirstPlacement(context)
+        assertFalse(LyricsDisplaySettingsStore.get(context).panelEnabled)
     }
 }

@@ -16,6 +16,9 @@ internal fun FloatingLyricsService.shouldPresentFixedLyricsPanel(): Boolean =
             it.panelEnabled && it.privacy == com.andsi.airlyrics.core.model.LockScreenLyricPrivacy.PUBLIC
         } && fixedLyricsPanel.hasInstances
 
+internal fun FloatingLyricsService.shouldUsePanelArtwork(): Boolean =
+    shouldPresentFixedLyricsPanel() && LyricsDisplaySettingsStore.get(this).panelAlbumColors
+
 internal fun FloatingLyricsService.clearLyricSurfaces() {
     lockScreenNotification.clear()
     fixedLyricsPanel.clear()
@@ -65,14 +68,14 @@ internal fun FloatingLyricsService.refreshLyricsPresentation() {
         scheduleSelectedCurrentMediaInfoRefresh()
         scheduleNextLyricsSync()
     }
-    if (shouldPresentFixedLyricsPanel() && !currentMedia.isEmpty) panelArtwork.update(currentMedia)
+    if (shouldUsePanelArtwork() && !currentMedia.isEmpty) panelArtwork.update(currentMedia)
     publishLockScreenLine()
 }
 
 internal fun FloatingLyricsService.publishLockScreenLine() {
     val interactive = isInteractiveLyricsScreen()
     val showPanel = shouldPresentFixedLyricsPanel() && !currentMedia.isEmpty
-    if (!showPanel) panelArtwork.clear()
+    if (!showPanel || !shouldUsePanelArtwork()) panelArtwork.clear()
     val showNotification = shouldPresentLockScreenLyrics() && !currentMedia.isEmpty
     val content = if (showPanel || showNotification) renderer.displaySnapshot().let { snapshot ->
         snapshot.currentLine?.let {

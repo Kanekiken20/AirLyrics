@@ -23,7 +23,11 @@ object LyricsDisplaySettingsStore {
             showMetadata = preferences.getBoolean(KEY_METADATA, true),
             compact = preferences.getBoolean(KEY_COMPACT, false),
             minimalMotion = isMinimalMotion(context),
-            panelEnabled = preferences.getBoolean(KEY_PANEL_ENABLED, false)
+            panelEnabled = preferences.getBoolean(KEY_PANEL_ENABLED, false),
+            panelAlbumColors = preferences.getBoolean("panel_album_colors", true),
+            panelTransparent = preferences.getBoolean("panel_transparent", true),
+            panelTextColor = preferences.getInt("panel_text_color", 0xFFF4F5F8.toInt()) or 0xFF000000.toInt(),
+            panelBackgroundColor = preferences.getInt("panel_background_color", 0xFF202127.toInt()) or 0xFF000000.toInt()
         )
     }
 
@@ -32,6 +36,22 @@ object LyricsDisplaySettingsStore {
 
     fun setPanelEnabled(context: Context, enabled: Boolean) =
         prefs(context, PREFS_NAME).setBoolean(KEY_PANEL_ENABLED, enabled)
+
+    fun enablePanelOnFirstPlacement(context: Context) {
+        // Adding a widget expresses intent to enable it. Preserve an explicit off choice,
+        // and never change the separate public/private disclosure preference.
+        if (!context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).contains(KEY_PANEL_ENABLED)) {
+            setPanelEnabled(context, true)
+        }
+    }
+
+    fun setPanelAlbumColors(context: Context, enabled: Boolean) =
+        prefs(context, PREFS_NAME).setBoolean("panel_album_colors", enabled)
+    fun setPanelTransparent(context: Context, enabled: Boolean) =
+        prefs(context, PREFS_NAME).setBoolean("panel_transparent", enabled)
+    fun setPanelColor(context: Context, text: Boolean, color: Int) =
+        prefs(context, PREFS_NAME).setInt(if (text) "panel_text_color" else "panel_background_color",
+            color or 0xFF000000.toInt())
 
     fun setPrivacy(context: Context, privacy: LockScreenLyricPrivacy) =
         prefs(context, PREFS_NAME).setString(KEY_PRIVACY, privacy.key)

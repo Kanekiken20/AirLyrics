@@ -7,6 +7,9 @@ import android.content.Context
 /** The system owns placement. A provider declaration does not establish Samsung AOD support. */
 class FixedLyricsPanelProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
+        if (appWidgetIds.isNotEmpty()) {
+            com.andsi.airlyrics.settings.store.LyricsDisplaySettingsStore.enablePanelOnFirstPlacement(context)
+        }
         FixedLyricsPanel.renderCached(context, manager, appWidgetIds)
         requestRefresh(context)
     }

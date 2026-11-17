@@ -84,7 +84,7 @@ internal fun FloatingLyricsService.applyCurrentMediaInfo(media: CurrentMediaInfo
         sampledAtElapsedRealtimeMs = media.sampledAtElapsedRealtimeMs
     )
     renderer.setLyricsOffset(LyricsOffsetStore.getOffsetMs(this, media.toSongIdentity()))
-    if (shouldPresentFixedLyricsPanel()) panelArtwork.update(media, refreshMetadata = true)
+    if (shouldUsePanelArtwork()) panelArtwork.update(media, refreshMetadata = true)
     reevaluateAutoHide()
 
     val playbackLyricsKey = media.playbackLyricsKey()

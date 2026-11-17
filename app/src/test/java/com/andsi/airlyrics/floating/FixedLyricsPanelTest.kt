@@ -31,6 +31,7 @@ class FixedLyricsPanelTest {
 
     @Before fun setup() {
         context.getSharedPreferences("lyrics_display", Context.MODE_PRIVATE).edit().clear().commit()
+        LyricsDisplaySettingsStore.setPanelEnabled(context, false)
         shadowOf(context.getSystemService(PowerManager::class.java)).setIsInteractive(true)
         widgetId = shadowOf(manager).createWidget(FixedLyricsPanelProvider::class.java, R.layout.fixed_lyrics_panel)
         panel = FixedLyricsPanel(context)
@@ -115,6 +116,27 @@ class FixedLyricsPanelTest {
         panel.update(content(2, "Unattributed"), true, LyricPanelPalette.fallback)
         assertEquals(View.GONE, credit.visibility)
         assertEquals(2, text().maxLines)
+    }
+
+    @Test fun manualAndAlbumColorsCanSwitchAndTransparencyUpdatesWithoutChangingLyrics() {
+        enablePublic()
+        val album = LyricPanelColors(android.graphics.Color.DKGRAY, android.graphics.Color.WHITE)
+        LyricsDisplaySettingsStore.setPanelAlbumColors(context, false)
+        LyricsDisplaySettingsStore.setPanelColor(context, true, android.graphics.Color.CYAN)
+        LyricsDisplaySettingsStore.setPanelColor(context, false, android.graphics.Color.BLUE)
+        LyricsDisplaySettingsStore.setPanelTransparent(context, false)
+        panel.update(content(), true, album)
+        fun background() = (root().background as android.graphics.drawable.ColorDrawable).color
+        assertEquals(android.graphics.Color.CYAN, text().currentTextColor)
+        assertEquals(android.graphics.Color.BLUE, background())
+        LyricsDisplaySettingsStore.setPanelTransparent(context, true)
+        assertTrue(panel.update(content(), true, album))
+        assertEquals(android.graphics.Color.TRANSPARENT, background())
+        LyricsDisplaySettingsStore.setPanelAlbumColors(context, true)
+        LyricsDisplaySettingsStore.setPanelTransparent(context, false)
+        assertTrue(panel.update(content(), true, album))
+        assertEquals(album.foreground, text().currentTextColor)
+        assertEquals(album.background, background())
     }
 
     @Test fun privacyAndDisableCanRedactHostCacheWithoutRunningAService() {

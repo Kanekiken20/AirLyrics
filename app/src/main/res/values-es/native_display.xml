@@ -40,4 +40,7 @@
     <string name="ui_panel_idle">Esperando letras</string>
     <string name="ui_panel_ambient">AOD en vivo no disponible</string>
     <string name="ui_panel_description">Dos líneas fijas con colores de la canción. La ubicación en bloqueo y AOD depende del sistema.</string>
+    <string name="ui_panel_album_colors">Usar colores del álbum</string>
+    <string name="ui_panel_transparent">Fondo transparente del widget</string>
+    <string name="ui_panel_color_hint">Desactiva los colores del álbum para usar tus colores de texto y fondo. Desactiva la transparencia para mostrar el fondo. Samsung puede aplicar sus propios colores monocromos.</string>
 </resources>

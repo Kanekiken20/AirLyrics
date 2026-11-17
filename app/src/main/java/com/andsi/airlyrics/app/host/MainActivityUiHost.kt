@@ -274,6 +274,18 @@ internal class MainActivityUiHost(
         LyricsDisplaySettingsStore.setPanelEnabled(this, enabled)
         com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
     }
+    override fun setPanelAlbumColors(enabled: Boolean) {
+        LyricsDisplaySettingsStore.setPanelAlbumColors(this, enabled)
+        com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
+    }
+    override fun setPanelTransparent(enabled: Boolean) {
+        LyricsDisplaySettingsStore.setPanelTransparent(this, enabled)
+        com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
+    }
+    override fun setPanelColor(text: Boolean, color: Int) {
+        LyricsDisplaySettingsStore.setPanelColor(this, text, color)
+        com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
+    }
     override fun setLyricsDisplayPrivacy(privacy: LockScreenLyricPrivacy) {
         LyricsDisplaySettingsStore.setPrivacy(this, privacy)
         com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)

@@ -40,4 +40,7 @@
     <string name="ui_panel_idle">等待歌词</string>
     <string name="ui_panel_ambient">息屏实时歌词不可用</string>
     <string name="ui_panel_description">固定两行歌词，使用歌曲配色。锁屏和息屏位置由系统决定。</string>
+    <string name="ui_panel_album_colors">使用专辑配色</string>
+    <string name="ui_panel_transparent">小组件背景透明</string>
+    <string name="ui_panel_color_hint">关闭专辑配色后可使用自选文字和背景颜色。关闭透明背景后显示背景色。三星可能应用系统单色配色。</string>
 </resources>

@@ -39,6 +39,23 @@ internal fun FloatingPageScope.addNativeDisplaySection(list: LinearLayout) = wit
             notifyFloatingStyleChanged()
         })
         addView(smallHint(host, getString(R.string.ui_panel_hint)))
+        addView(settingSwitch(host, getString(R.string.ui_panel_album_colors), lyricsDisplaySettings().panelAlbumColors) { enabled ->
+            setPanelAlbumColors(enabled)
+            notifyFloatingStyleChanged()
+        })
+        addView(settingSwitch(host, getString(R.string.ui_panel_transparent), lyricsDisplaySettings().panelTransparent) { enabled ->
+            setPanelTransparent(enabled)
+            notifyFloatingStyleChanged()
+        })
+        addView(smallHint(host, getString(R.string.ui_panel_color_hint)))
+        addView(colorControl(getString(R.string.ui_text_color), lyricsDisplaySettings().panelTextColor, includeOpacity = false) { color ->
+            setPanelColor(true, color)
+            notifyFloatingStyleChanged()
+        })
+        addView(colorControl(getString(R.string.ui_background), lyricsDisplaySettings().panelBackgroundColor, includeOpacity = false) { color ->
+            setPanelColor(false, color)
+            notifyFloatingStyleChanged()
+        })
         addView(settingSwitch(host, getString(R.string.ui_lock_lyrics_enable), lyricsDisplaySettings().enabled) { enabled ->
             setLyricsDisplayEnabled(enabled)
             notifyFloatingStyleChanged()

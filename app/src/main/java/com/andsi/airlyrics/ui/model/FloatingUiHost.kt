@@ -104,6 +104,9 @@ internal interface FloatingUiHost {
     fun lyricsDisplaySettings() = com.andsi.airlyrics.core.model.LyricsDisplaySettings()
     fun setLyricsDisplayEnabled(enabled: Boolean) = Unit
     fun setFixedLyricsPanelEnabled(enabled: Boolean) = Unit
+    fun setPanelAlbumColors(enabled: Boolean) = Unit
+    fun setPanelTransparent(enabled: Boolean) = Unit
+    fun setPanelColor(text: Boolean, color: Int) = Unit
     fun setLyricsDisplayPrivacy(privacy: com.andsi.airlyrics.core.model.LockScreenLyricPrivacy) = Unit
     fun setLyricsDisplayShowMetadata(enabled: Boolean) = Unit
     fun setLyricsDisplayCompact(compact: Boolean) = Unit

@@ -18,5 +18,9 @@ data class LyricsDisplaySettings(
     val showMetadata: Boolean = true,
     val compact: Boolean = false,
     val minimalMotion: Boolean = false,
-    val panelEnabled: Boolean = false
+    val panelEnabled: Boolean = false,
+    val panelAlbumColors: Boolean = true,
+    val panelTransparent: Boolean = true,
+    val panelTextColor: Int = 0xFFF4F5F8.toInt(),
+    val panelBackgroundColor: Int = 0xFF202127.toInt()
 )

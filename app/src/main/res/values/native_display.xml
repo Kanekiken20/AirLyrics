@@ -40,4 +40,7 @@
     <string name="ui_panel_idle">Waiting for lyrics</string>
     <string name="ui_panel_ambient">Live AOD unavailable</string>
     <string name="ui_panel_description">Fixed two-line lyrics with song colors. Lock-screen and AOD placement depend on the system.</string>
+    <string name="ui_panel_album_colors">Use album colors for widget</string>
+    <string name="ui_panel_transparent">Transparent widget background</string>
+    <string name="ui_panel_color_hint">Turn off album colors to use your chosen text and background colors. Turn off transparency to show the background. Samsung may apply its own monochrome colors.</string>
 </resources>

@@ -8,7 +8,7 @@
         android:id="@+id/lyric_panel_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#202127"
+        android:background="@android:color/transparent"
         android:clickable="false"
         android:focusable="false"
         android:orientation="vertical"

@@ -15,6 +15,7 @@ internal class FixedLyricsPanel(private val context: Context) {
     private val manager = AppWidgetManager.getInstance(context)
     private var ids = intArrayOf()
     private var lastPosted: Presentation? = null
+    private var lastTransparent: Boolean? = null
     private var newestGeneration = Long.MIN_VALUE
 
     val hasInstances: Boolean get() = ids.isNotEmpty()
@@ -30,10 +31,12 @@ internal class FixedLyricsPanel(private val context: Context) {
         if (content != null) newestGeneration = content.generation
         cached = Content(content, interactive, colors)
         val presentation = presentation(context)
-        if (ids.isEmpty() || presentation == lastPosted) return false
+        val transparent = LyricsDisplaySettingsStore.get(context).panelTransparent
+        if (ids.isEmpty() || presentation == lastPosted && transparent == lastTransparent) return false
         return runCatching {
             manager.updateAppWidget(ids, views(context, presentation))
             lastPosted = presentation
+            lastTransparent = transparent
             true
         }.getOrDefault(false)
     }
@@ -82,7 +85,8 @@ internal class FixedLyricsPanel(private val context: Context) {
             val attribution = cached.lyric?.attribution?.takeIf { line != null }.orEmpty()
             val body = if (attribution.isEmpty()) line else line?.removeSuffix("\n$attribution")
             return Presentation(body?.take(2048) ?: context.getString(R.string.ui_panel_idle),
-                if (line == null) fallback else cached.colors, true, attribution)
+                if (line == null) fallback else if (settings.panelAlbumColors) cached.colors else
+                    LyricPanelColors(settings.panelBackgroundColor, settings.panelTextColor), true, attribution)
         }
 
         private fun views(context: Context, presentation: Presentation) =
@@ -96,7 +100,9 @@ internal class FixedLyricsPanel(private val context: Context) {
                 setContentDescription(R.id.lyric_panel_text, presentation.text)
                 setTextColor(R.id.lyric_panel_text, presentation.colors.foreground)
                 setTextColor(R.id.lyric_panel_attribution, presentation.colors.foreground)
-                setInt(R.id.lyric_panel_content, "setBackgroundColor", presentation.colors.background)
+                setInt(R.id.lyric_panel_content, "setBackgroundColor",
+                    if (LyricsDisplaySettingsStore.get(context).panelTransparent) android.graphics.Color.TRANSPARENT
+                    else presentation.colors.background)
             }
     }
 }
