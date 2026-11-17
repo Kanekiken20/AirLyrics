@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="2dp">
+
+    <LinearLayout
+        android:id="@+id/lyric_panel_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#202127"
+        android:clickable="false"
+        android:focusable="false"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingHorizontal="6dp"
+        android:paddingVertical="4dp">
+
+        <TextView
+            android:id="@+id/lyric_panel_text"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:fontFamily="sans-serif-medium"
+            android:textSize="13sp"
+            android:textColor="#F4F5F8"
+            android:text="@string/ui_panel_idle"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:textDirection="firstStrong"
+            android:clickable="false"
+            android:focusable="false" />
+        <TextView
+            android:id="@+id/lyric_panel_attribution"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textSize="11sp"
+            android:textColor="#F4F5F8"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:visibility="gone"
+            android:clickable="false"
+            android:focusable="false" />
+    </LinearLayout>
+</FrameLayout>

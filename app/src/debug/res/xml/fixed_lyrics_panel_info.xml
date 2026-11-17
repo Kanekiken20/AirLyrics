@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only Samsung picker experiment; not an AOD compatibility claim. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:minWidth="56dp"
+    android:minHeight="56dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/fixed_lyrics_panel"
+    android:initialKeyguardLayout="@layout/fixed_lyrics_panel"
+    android:previewLayout="@layout/fixed_lyrics_panel"
+    android:description="@string/ui_panel_description"
+    android:resizeMode="none"
+    android:widgetCategory="home_screen|keyguard"
+    app:targetHost="home|lockAndAod"
+    app:widgetStyle="colorful|monotone"
+    app:lockWidgetSize="tiny|small"
+    app:monotoneWidgetSize="tiny|small"
+    app:initialLayoutTiny="@layout/fixed_lyrics_panel"
+    app:previewLayoutTiny="@layout/fixed_lyrics_panel"
+    app:monotoneInitialLayoutTiny="@layout/fixed_lyrics_panel"
+    app:monotonePreviewLayoutTiny="@layout/fixed_lyrics_panel" />
