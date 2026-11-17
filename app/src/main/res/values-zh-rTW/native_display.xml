@@ -2,11 +2,11 @@
 <resources>
     <string name="ui_native_display_title">原生歌詞顯示</string>
     <string name="ui_native_display_controls">鎖定畫面、停靠與電池</string>
-    <string name="ui_hold_to_edit">長按五秒以調整</string>
+    <string name="ui_hold_to_edit">長按三秒以調整</string>
     <string name="ui_edge_docking">歌詞邊緣停靠</string>
     <string name="ui_hold_to_edit_hint">允許觸控時保持長按不動。啟用觸控穿透時，請透過服務通知中的調整模式進入。</string>
     <string name="ui_lock_lyrics_enable">顯示鎖定畫面歌詞通知</string>
-    <string name="ui_lock_lyrics_permission_hint">需要通知權限，並允許鎖定畫面通知。最終顯示樣式由系統決定。</string>
+    <string name="ui_lock_lyrics_permission_hint">使用 AirLyrics 時會自動更新。請允許通知，並在手機設定中選擇詳細或卡片式鎖定畫面通知。位置與展開方式由系統決定。</string>
     <string name="ui_lock_lyrics_permissions">通知權限與設定</string>
     <string name="ui_lock_lyrics_privacy">鎖定畫面隱私</string>
     <string name="ui_lock_lyrics_private">私密（預設）</string>

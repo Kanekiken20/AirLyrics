@@ -2,11 +2,11 @@
 <resources>
     <string name="ui_native_display_title">Native lyrics surfaces</string>
     <string name="ui_native_display_controls">Lock screen, docking &amp; battery</string>
-    <string name="ui_hold_to_edit">Hold five seconds to adjust</string>
+    <string name="ui_hold_to_edit">Hold three seconds to adjust</string>
     <string name="ui_edge_docking">Dock lyrics at either edge</string>
     <string name="ui_hold_to_edit_hint">Hold stationary while touch is enabled. For click-through lyrics, use Adjustment Mode in the service notification.</string>
     <string name="ui_lock_lyrics_enable">Show lock-screen lyric notification</string>
-    <string name="ui_lock_lyrics_permission_hint">Requires notification permission and allowed lock-screen notifications. Your system controls the final appearance.</string>
+    <string name="ui_lock_lyrics_permission_hint">Updates automatically while using AirLyrics. Allow notifications and select detailed or card-style lock-screen notifications in your phone settings. Your system controls placement and expansion.</string>
     <string name="ui_lock_lyrics_permissions">Notification permissions &amp; settings</string>
     <string name="ui_lock_lyrics_privacy">Lock-screen privacy</string>
     <string name="ui_lock_lyrics_private">Private (default)</string>

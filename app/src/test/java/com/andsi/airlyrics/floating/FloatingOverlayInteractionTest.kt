@@ -71,10 +71,49 @@ class FloatingOverlayInteractionTest {
         return wm.views.firstNotNullOfOrNull(::find) ?: error("Missing control $description")
     }
 
-    @Test fun fiveSecondStationaryHoldOpensEditorOnce() {
+    @Test fun slowPushPastEitherEdgeDocksWithoutEditingOrFling() {
+        val text = requireNotNull(window.textView)
+        val distance = 800f * text.resources.displayMetrics.density
+        for (direction in listOf(-1, 1)) {
+            touch(text, MotionEvent.ACTION_DOWN, 10f, at = 0L)
+            touch(text, MotionEvent.ACTION_MOVE, 10f + direction * distance, at = 10_000L)
+            assertTrue("Slow edge push should dock before release", window.isDocked)
+            assertFalse(window.isEditing)
+            idle()
+            assertEquals(1, wm.views.size)
+            window.expand(animate = false)
+            idle()
+        }
+    }
+
+    @Test fun disabledDockingAndSmallDragsKeepTheWindowExpanded() {
         val text = requireNotNull(window.textView)
         touch(text, MotionEvent.ACTION_DOWN)
-        advance(4_999)
+        touch(text, MotionEvent.ACTION_MOVE, 24f)
+        assertFalse(window.isDocked)
+        touch(text, MotionEvent.ACTION_CANCEL)
+        FloatingOverlayStore.setDockingEnabled(context, false)
+        touch(text, MotionEvent.ACTION_DOWN)
+        touch(text, MotionEvent.ACTION_MOVE, -800f * text.resources.displayMetrics.density)
+        assertFalse(window.isDocked)
+        touch(text, MotionEvent.ACTION_CANCEL)
+    }
+
+    @Test fun physicalEdgePushStillWorksInRtl() {
+        val text = requireNotNull(window.textView)
+        text.layoutDirection = View.LAYOUT_DIRECTION_RTL
+        window.onConfigurationChanged()
+        idle()
+        touch(text, MotionEvent.ACTION_DOWN)
+        touch(text, MotionEvent.ACTION_MOVE, -800f * text.resources.displayMetrics.density)
+        assertTrue(window.isDocked)
+        assertEquals(DockSide.LEFT, FloatingOverlayStore.geometry(context).dockSide)
+    }
+
+    @Test fun threeSecondStationaryHoldOpensEditorOnce() {
+        val text = requireNotNull(window.textView)
+        touch(text, MotionEvent.ACTION_DOWN)
+        advance(2_999)
         assertFalse(window.isEditing)
         advance(1)
         assertTrue(window.isEditing)
@@ -90,16 +129,16 @@ class FloatingOverlayInteractionTest {
         val text = requireNotNull(window.textView)
         touch(text, MotionEvent.ACTION_DOWN)
         touch(text, MotionEvent.ACTION_MOVE, 200f)
-        advance(5_000)
+        advance(3_000)
         assertFalse(window.isEditing)
         touch(text, MotionEvent.ACTION_CANCEL)
         touch(text, MotionEvent.ACTION_DOWN)
         touch(text, MotionEvent.ACTION_POINTER_DOWN)
-        advance(5_000)
+        advance(3_000)
         assertFalse(window.isEditing)
         touch(text, MotionEvent.ACTION_DOWN)
         window.setPresentationVisible(false)
-        advance(5_000)
+        advance(3_000)
         assertFalse(window.isEditing)
         assertTrue(window.isVisible)
         assertTrue(wm.views.isEmpty())

@@ -25,9 +25,19 @@ internal class LyricsScreenMonitor(
     private val keyguard = context.getSystemService(KeyguardManager::class.java)
     private var started = false
     private val refresh = Runnable { if (started) onChanged() }
-    private fun schedule() { handler.removeCallbacks(refresh); handler.post(refresh) }
+    private val settledRefresh = Runnable { if (started) onChanged() }
+    private fun schedule(recheck: Boolean = false) {
+        handler.removeCallbacks(refresh)
+        handler.post(refresh)
+        if (recheck) {
+            // Keyguard can settle after SCREEN_ON/display callbacks. One bounded recheck,
+            // rather than a lock-screen polling loop, handles that ordering.
+            handler.removeCallbacks(settledRefresh)
+            handler.postDelayed(settledRefresh, 250L)
+        }
+    }
     private val receiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) = schedule()
+        override fun onReceive(context: Context?, intent: Intent?) = schedule(intent?.action == Intent.ACTION_SCREEN_ON)
     }
     private val observer = object : ContentObserver(handler) {
         override fun onChange(selfChange: Boolean) = schedule()
@@ -35,7 +45,7 @@ internal class LyricsScreenMonitor(
     private val listener = object : DisplayManager.DisplayListener {
         override fun onDisplayAdded(displayId: Int) = schedule()
         override fun onDisplayRemoved(displayId: Int) = schedule()
-        override fun onDisplayChanged(displayId: Int) = schedule()
+        override fun onDisplayChanged(displayId: Int) = schedule(recheck = true)
     }
 
     fun screenClass(): LyricsScreenClass = when (displays.getDisplay(Display.DEFAULT_DISPLAY)?.state) {
@@ -71,6 +81,7 @@ internal class LyricsScreenMonitor(
         if (!started) return
         started = false
         handler.removeCallbacks(refresh)
+        handler.removeCallbacks(settledRefresh)
         displays.unregisterDisplayListener(listener)
         runCatching { context.unregisterReceiver(receiver) }
         context.contentResolver.unregisterContentObserver(observer)

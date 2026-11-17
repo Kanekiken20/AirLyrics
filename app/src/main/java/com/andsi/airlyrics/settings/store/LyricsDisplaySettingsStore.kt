@@ -20,7 +20,7 @@ object LyricsDisplaySettingsStore {
             enabled = preferences.getBoolean(KEY_ENABLED, false),
             privacy = LockScreenLyricPrivacy.fromKey(preferences.getString(KEY_PRIVACY)),
             showMetadata = preferences.getBoolean(KEY_METADATA, true),
-            compact = preferences.getBoolean(KEY_COMPACT, true),
+            compact = preferences.getBoolean(KEY_COMPACT, false),
             minimalMotion = isMinimalMotion(context)
         )
     }

@@ -32,7 +32,7 @@ internal object LyricsPresentationPolicy {
                     if (editing) LyricsPresentationMode.EDIT else LyricsPresentationMode.EXPANDED,
                     drawOverlay = true, animate = motionAllowed
                 )
-            }
+            }.copy(updateLockScreen = lockScreenEnabled)
             LyricsScreenClass.LOCKED_INTERACTIVE -> LyricsPresentationDecision(
                 if (lockScreenEnabled) LyricsPresentationMode.LOCKSCREEN else LyricsPresentationMode.HIDDEN,
                 updateLockScreen = lockScreenEnabled

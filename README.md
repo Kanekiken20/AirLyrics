@@ -73,7 +73,7 @@ For more settings and help with common problems, see the [User Guide](docs/USER_
   available.
 - **Display controls**: Automatically hide lyrics when playback is paused, lock the window, let taps
   pass through it, or control it from the notification. You can also limit the overlay to selected
-  apps. A five-second stationary hold opens native resize/edit controls; edge docking leaves a small
+  apps. A three-second stationary hold opens native resize/edit controls; edge docking leaves a small
   handle. Click-through overlays retain the notification adjustment route.
 - **Lock-screen lyrics**: Opt-in silent lyric notifications with private/public/hidden visibility and
   metadata controls. Galaxy A25 / One UI 8.5 live AOD compatibility is **unverified**; no live-AOD
@@ -211,6 +211,10 @@ cd AirLyrics
 ```
 
 ### Build a Debug APK
+
+Debug builds install separately as **AirLyrics Test** (`com.andsi.airlyrics.sandbox`) using a debug
+signing key. The release application ID and signing configuration remain unchanged. See the
+[side-by-side test build guide](docs/TEST_BUILD.md).
 
 ```bash
 ./gradlew assembleDebug

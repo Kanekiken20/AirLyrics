@@ -2,11 +2,11 @@
 <resources>
     <string name="ui_native_display_title">Superficies nativas de letras</string>
     <string name="ui_native_display_controls">Bloqueo, acoplamiento y batería</string>
-    <string name="ui_hold_to_edit">Mantener cinco segundos para ajustar</string>
+    <string name="ui_hold_to_edit">Mantener tres segundos para ajustar</string>
     <string name="ui_edge_docking">Acoplar letras en los bordes</string>
     <string name="ui_hold_to_edit_hint">Mantén el dedo quieto con el toque activado. Si las letras dejan pasar los toques, usa el modo de ajuste de la notificación.</string>
     <string name="ui_lock_lyrics_enable">Mostrar notificación de letras en el bloqueo</string>
-    <string name="ui_lock_lyrics_permission_hint">Requiere permiso para notificaciones y permitirlas en el bloqueo. El sistema controla su aspecto final.</string>
+    <string name="ui_lock_lyrics_permission_hint">Se actualiza automáticamente mientras usas AirLyrics. Permite notificaciones y elige notificaciones detalladas o de tarjeta en la pantalla de bloqueo. El sistema decide su ubicación y expansión.</string>
     <string name="ui_lock_lyrics_permissions">Permisos y ajustes de notificaciones</string>
     <string name="ui_lock_lyrics_privacy">Privacidad en la pantalla de bloqueo</string>
     <string name="ui_lock_lyrics_private">Privado (predeterminado)</string>

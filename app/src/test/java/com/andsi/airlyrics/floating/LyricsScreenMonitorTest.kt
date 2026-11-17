@@ -84,4 +84,26 @@ class LyricsScreenMonitorTest {
         assertEquals(beforeClose, changes)
         monitor.close()
     }
+
+    @Test fun lateKeyguardStateIsRecheckedOnceAfterWakeWithoutPolling() {
+        val states = mutableListOf<LyricsScreenClass>()
+        val wakeMonitor = LyricsScreenMonitor(context, Handler(Looper.getMainLooper())) {
+            states += monitor.screenClass()
+        }
+        shadowOf(display).setState(Display.STATE_ON)
+        shadowOf(power).setIsInteractive(true)
+        shadowOf(keyguard).setKeyguardLocked(false)
+        wakeMonitor.start()
+        try {
+            context.sendBroadcast(Intent(Intent.ACTION_SCREEN_ON))
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(LyricsScreenClass.UNLOCKED, states.last())
+            shadowOf(keyguard).setKeyguardLocked(true)
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(250))
+            assertEquals(LyricsScreenClass.LOCKED_INTERACTIVE, states.last())
+            val settledCount = states.size
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(5))
+            assertEquals(settledCount, states.size)
+        } finally { wakeMonitor.close() }
+    }
 }

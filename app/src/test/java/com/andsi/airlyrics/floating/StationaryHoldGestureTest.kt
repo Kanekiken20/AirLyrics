@@ -10,7 +10,7 @@ class StationaryHoldGestureTest {
         assertTrue(gesture.move(18f, 12f))
         assertTrue(gesture.consume())
         assertFalse(gesture.consume())
-        assertEquals(5_000L, StationaryHoldGesture.HOLD_DURATION_MS)
+        assertEquals(3_000L, StationaryHoldGesture.HOLD_DURATION_MS)
     }
 
     @Test fun excursionCancelsEvenWhenFingerReturnsToStart() {

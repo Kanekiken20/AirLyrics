@@ -82,6 +82,7 @@ class LockScreenLyricsNotificationTest {
                 LockScreenLyricPrivacy.HIDDEN -> Notification.VISIBILITY_SECRET
             }
             assertEquals(expected, notification.visibility)
+            if (privacy == LockScreenLyricPrivacy.PUBLIC) assertNull(notification.publicVersion)
             assertEquals(Notification.CATEGORY_STATUS, notification.category)
             assertFalse(notification.extras.containsKey(Notification.EXTRA_MEDIA_SESSION))
             assertNotNull(notification.contentIntent)
@@ -91,7 +92,7 @@ class LockScreenLyricsNotificationTest {
     @Test
     fun metadataAndCompactPreferencesChangeOnlyPresentation() {
         val multiline = line.copy(line = "First line\nSecond line")
-        val compact = presenter.build(multiline, LyricsDisplaySettings(enabled = true, showMetadata = false))
+        val compact = presenter.build(multiline, LyricsDisplaySettings(enabled = true, showMetadata = false, compact = true))
         assertEquals(application.getString(R.string.ui_lock_lyrics_title),
             compact.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
         assertEquals("First line · Second line", compact.extras.getCharSequence(Notification.EXTRA_TEXT).toString())

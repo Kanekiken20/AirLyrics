@@ -16,6 +16,6 @@ data class LyricsDisplaySettings(
     val enabled: Boolean = false,
     val privacy: LockScreenLyricPrivacy = LockScreenLyricPrivacy.PRIVATE,
     val showMetadata: Boolean = true,
-    val compact: Boolean = true,
+    val compact: Boolean = false,
     val minimalMotion: Boolean = false
 )

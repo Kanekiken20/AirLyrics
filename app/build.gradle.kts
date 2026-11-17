@@ -124,6 +124,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Install the evaluation APK alongside the user's production AirLyrics.
+            // Android isolates app data and permissions by application ID, not signature alone.
+            applicationIdSuffix = ".sandbox"
+            versionNameSuffix = "-test"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

@@ -126,11 +126,13 @@ internal class LockScreenLyricsNotification(private val context: Context) {
             .setContentTitle(title)
             .setContentText(line)
             .setVisibility(visibility)
-            .setPublicVersion(baseBuilder()
+        if (settings.privacy == LockScreenLyricPrivacy.PRIVATE) {
+            builder.setPublicVersion(baseBuilder()
                 .setContentTitle(context.getString(R.string.ui_lock_lyrics_title))
                 .setContentText(context.getString(R.string.ui_lock_lyrics_redacted))
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .build())
+        }
         if (!settings.compact) builder.setStyle(NotificationCompat.BigTextStyle().bigText(line))
         return builder.build()
     }

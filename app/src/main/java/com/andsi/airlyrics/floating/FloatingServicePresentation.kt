@@ -7,7 +7,7 @@ internal fun FloatingLyricsService.isInteractiveLyricsScreen(): Boolean =
     screenClass == LyricsScreenClass.UNLOCKED || screenClass == LyricsScreenClass.LOCKED_INTERACTIVE
 
 internal fun FloatingLyricsService.shouldPresentLockScreenLyrics(): Boolean =
-    !sourceLost && screenClass == LyricsScreenClass.LOCKED_INTERACTIVE &&
+    !sourceLost && isInteractiveLyricsScreen() &&
         QuickFloatingStore.isDesiredVisible(this) && LyricsDisplaySettingsStore.get(this).enabled
 
 /** The existing service is the sole scheduler and all events are serialized on its main looper. */

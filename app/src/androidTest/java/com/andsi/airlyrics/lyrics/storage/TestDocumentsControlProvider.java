@@ -33,7 +33,7 @@ public final class TestDocumentsControlProvider extends ContentProvider {
     public static final String RESULT_TREE_URI = "treeUri";
     public static final String RESULT_OPERATION_SUCCEEDED = "airlyricsTestControlSuccess";
 
-    private static final String TARGET_PACKAGE = "com.andsi.airlyrics";
+    private static final String TARGET_PACKAGE = com.andsi.airlyrics.BuildConfig.APPLICATION_ID;
     private static final int SHELL_APP_ID = 2000;
     private static final Pattern SESSION_NAME_PATTERN =
             Pattern.compile(

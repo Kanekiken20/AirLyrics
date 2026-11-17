@@ -19,7 +19,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.HapticFeedbackConstants
-import android.view.VelocityTracker
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.WindowInsets
 import android.view.WindowManager
@@ -67,7 +66,6 @@ class FloatingLyricsWindow(
     private var resizeParams: WindowManager.LayoutParams? = null
     private var editSnapshot: EditSnapshot? = null
     private var editTextSizeSp: Float? = null
-    private var velocityTracker: VelocityTracker? = null
     private val holdGesture = StationaryHoldGesture(touchSlop)
     private var transitionGeneration = 0
     private var transitionAnimator: ObjectAnimator? = null
@@ -283,7 +281,6 @@ class FloatingLyricsWindow(
                 startY = p.y
                 touchStartX = event.rawX
                 touchStartY = event.rawY
-                velocityTracker = VelocityTracker.obtain().also { it.addMovement(event) }
                 if (!isLocked && !isEditing && FloatingOverlayStore.isHoldToEditEnabled(context)) {
                     holdGesture.start(event.rawX, event.rawY)
                     view.postDelayed(holdRunnable, StationaryHoldGesture.HOLD_DURATION_MS)
@@ -291,7 +288,6 @@ class FloatingLyricsWindow(
                 true
             }
             MotionEvent.ACTION_MOVE -> {
-                velocityTracker?.addMovement(event)
                 if (!holdGesture.move(event.rawX, event.rawY)) view.removeCallbacks(holdRunnable)
                 if (isLocked || !gestureActive) return true
                 if (!dragging && isClick(event)) return true
@@ -307,33 +303,34 @@ class FloatingLyricsWindow(
                     runCatching { windowManager.updateViewLayout(view, p); updateEditorLayout() }
                         .onFailure { hideAfterFailure() }
                 }
+                // Push beyond the physical edge to dock immediately, even during a slow drag.
+                // Overshoot distinguishes docking from simply positioning the window near an edge.
+                if (!isEditing && FloatingOverlayStore.isDockingEnabled(context)) {
+                    val physicalDx = event.rawX - touchStartX
+                    val physicalX = if (view.layoutDirection == View.LAYOUT_DIRECTION_RTL)
+                        bounds.travelX - (startX + dx) else startX + dx
+                    val side = when {
+                        physicalDx <= -dp(48) && physicalX <= -dp(24) -> DockSide.LEFT
+                        physicalDx >= dp(48) && physicalX >= bounds.travelX + dp(24) -> DockSide.RIGHT
+                        else -> DockSide.NONE
+                    }
+                    if (side != DockSide.NONE) {
+                        saveDraggedPosition(p)
+                        cancelGesture()
+                        dock(side)
+                    }
+                }
                 true
             }
             MotionEvent.ACTION_UP -> {
                 view.removeCallbacks(holdRunnable)
                 holdGesture.cancel()
                 if (!gestureActive) { cancelGesture(); return true }
-                velocityTracker?.addMovement(event)
-                velocityTracker?.computeCurrentVelocity(1000)
-                val velocity = velocityTracker?.xVelocity ?: 0f
-                val dockSide = if (!isLocked && !isEditing && dragging &&
-                    FloatingOverlayStore.isDockingEnabled(context) && abs(velocity) >= dp(800)) {
-                    val physicalDx = event.rawX - touchStartX
-                    val rtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
-                    val atLeft = if (rtl) p.x == geometry?.travelX else p.x == 0
-                    val atRight = if (rtl) p.x == 0 else p.x == geometry?.travelX
-                    when {
-                        atLeft && physicalDx < -dp(72) && velocity < 0 -> DockSide.LEFT
-                        atRight && physicalDx > dp(72) && velocity > 0 -> DockSide.RIGHT
-                        else -> DockSide.NONE
-                    }
-                } else DockSide.NONE
                 if (!dragging && isClick(event)) performLyricClick(view, event, isLocked)
                 if (!isLocked && dragging) {
                     if (isEditing) updateDraftPosition(p) else saveDraggedPosition(p)
                 }
                 cancelGesture()
-                if (dockSide != DockSide.NONE) dock(dockSide)
                 true
             }
             MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> {
@@ -369,8 +366,6 @@ class FloatingLyricsWindow(
         holdGesture.cancel()
         gestureActive = false
         dragging = false
-        velocityTracker?.recycle()
-        velocityTracker = null
     }
 
     private fun isClick(event: MotionEvent): Boolean {

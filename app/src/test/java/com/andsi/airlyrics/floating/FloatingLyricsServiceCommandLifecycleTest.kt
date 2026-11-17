@@ -100,6 +100,8 @@ class FloatingLyricsServiceCommandLifecycleTest {
 
     @Test
     fun serviceCommands_lockAndClickThrough_updateWindowFlagsAndState() {
+        // This fixture tests flags/dragging; deliberate edge docking has separate coverage.
+        com.andsi.airlyrics.settings.store.FloatingOverlayStore.setDockingEnabled(application, false)
         val controller = Robolectric.buildService(FloatingLyricsService::class.java)
             .create()
             .also { serviceController = it }
@@ -371,6 +373,8 @@ class FloatingLyricsServiceCommandLifecycleTest {
     }
 
     private fun resetState() {
+        application.getSharedPreferences("floating_overlay_geometry", Context.MODE_PRIVATE)
+            .edit().clear().commit()
         application.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .clear()

@@ -1,18 +1,18 @@
 # Native lyrics display
 
-This change extends the existing Kotlin/View AirLyrics application on `codex/native-lyrics-display`. It retains the application ID, foreground service, media-session listener, provider/repository pipeline, Rust engine and saved-lyrics formats. No new Android permission, service, backend or player was added.
+This change extends the existing Kotlin/View AirLyrics application on `codex/native-lyrics-display`. The release variant retains its application ID; following the user's request, debug builds now install separately as **AirLyrics Test** (`com.andsi.airlyrics.sandbox`). See [TEST_BUILD.md](TEST_BUILD.md). The foreground service, media-session listener, provider/repository pipeline, Rust engine and saved-lyrics formats remain in the existing app. No new Android permission, service, backend or player was added.
 
 For exact executable results, APK details and untested cases, see [IMPLEMENTATION_VERIFICATION.md](IMPLEMENTATION_VERIFICATION.md). The Samsung capability investigation is in [AOD_CAPABILITY_REPORT.md](AOD_CAPABILITY_REPORT.md). Automated Android tests simulate platform behavior; they do not establish Samsung compatibility or physical animation quality.
 
 ## Use the overlay
 
 1. Select the playing app on **Media**, then **Show** on **Floating**.
-2. On an unlocked, touchable overlay, hold still for **5 seconds** to open adjustment controls. Moving beyond touch slop, adding a finger, canceling, locking, rotating or hiding cancels the hold. A final haptic marks entry; there is no five-second drawing loop.
+2. On an unlocked, touchable overlay, hold still for **3 seconds** to open adjustment controls. Moving beyond touch slop, adding a finger, canceling, locking, rotating or hiding cancels the hold. A final haptic marks entry; there is no three-second drawing loop.
 3. Drag the lyric to move it. Drag the corner resize control to change the box dimensions. **Smaller text / Larger text** change font size independently. The resize control also exposes labeled accessibility actions and arrow-key adjustments.
 4. **Done** saves dimensions, font size and normalized position. **Cancel** restores the edit snapshot; **Reset** restores automatic dimensions and a reachable position within the draft. Rotation or screen lock cancels an unfinished edit.
-5. Use **Dock left / Dock right** in adjustment controls, or fling outward at the corresponding edge. A deliberate fling requires at least 72 dp of outward travel and 800 dp/s release velocity. Docking replaces the lyric window with a 48 × 64 dp handle. Tap or swipe inward to expand; the latest lyric is restored from the shared timeline.
+5. Push the lyrics past either screen edge to dock immediately, without a hold, editor or fling. A deliberate push needs 48 dp of outward travel and 24 dp of overshoot beyond the reachable edge. **Dock left / Dock right** remain available in adjustment controls. Docking replaces the lyric window with a 48 × 64 dp handle. Tap or swipe inward to expand; the latest lyric is restored from the shared timeline.
 
-Click-through continues to pass touches to the app beneath it, including while docked. Its five-second hold cannot be detected. Use the ongoing notification's **Adjustment Mode** action to enable touch and open the editor. A locked touchable overlay still prevents dragging; it can be unlocked through existing controls. Edge docking and hold-to-edit can each be disabled in the new native display controls.
+Click-through continues to pass touches to the app beneath it, including while docked. Its three-second hold cannot be detected. Use the ongoing notification's **Adjustment Mode** action to enable touch and open the editor. A locked touchable overlay still prevents dragging; it can be unlocked through existing controls. Edge docking and hold-to-edit can each be disabled in the new native display controls.
 
 Geometry uses the existing relative position keys plus a separate normalized width/height and dock preference store. The native width slider takes precedence over an earlier resize width; it preserves the independent height and font size. Existing pixel-based positions still migrate through the original geometry path. Insets, cutouts, IME space and rotation use the WindowManager safe area; physical-device validation is still required.
 
@@ -32,7 +32,7 @@ Lock-screen lyrics are **off by default**. Enable them in native display control
 - **Public**: explicit opt-in to display lyric/song content where System UI permits it.
 - **Hidden**: native `VISIBILITY_SECRET` to exclude the notification from the lock screen.
 
-Metadata and compact display are optional. One silent, stable-ID lyric notification updates on sentence/seek/offset changes while the lock screen is interactive. It does not impersonate the selected player's media session. Source loss, replacement, hide or service teardown removes old lyric notifications; paused lyrics freeze without prediction polling. Channel/permission suppression is handled without a retry loop. Exact display and throttling depend on System UI.
+Metadata and compact display are optional. One silent, stable-ID lyric card updates automatically on sentence/seek/offset changes while the screen is interactive, before and after locking. Full text is the default; compact mode remains optional. Select detailed or card-style lock-screen notifications in the phone's settings if only icons appear. System UI controls placement and expansion; AirLyrics cannot force a centred card or merge with another player's notification. It does not impersonate the selected player's media session. Source loss, replacement, hide or service teardown removes old lyric notifications; paused lyrics freeze without prediction polling. Channel/permission suppression is handled without a retry loop. Exact display and throttling depend on System UI.
 
 **Galaxy A25 5G / One UI 8.5 live AOD: UNVERIFIED.** No phone was connected, and no supported dynamic AOD text surface was demonstrated. There is no live-AOD toggle, fake black activity or ambient lyric renderer. The existing ongoing notification may provide a system-owned AOD indicator if Samsung displays it; even that appearance requires device verification. No private OEM API, root, accessibility workaround, screen wake or wakelock was introduced.
 
@@ -48,13 +48,13 @@ Media-session callbacks remain primary. The existing recovery poll is reduced fr
 
 The existing `./gradlew :app:assembleDebug` route remains unchanged and builds the Rust JNI engine when its prerequisites are installed. This workspace separately built the unchanged ARM64 engine with `cargo ndk ... --release --locked`, then packaged that verified library with `-Pairlyrics.skipRustBuild=true`; see the verification report for exact commands and results.
 
-The delivered debug APK targets ARM64, including the Galaxy A25 hardware architecture. APK construction/signature verification does not prove installation or device behavior. On a connected device, install with:
+The delivered debug APK targets ARM64, including the Galaxy A25 hardware architecture. The latest debug/test APK has its own application ID and can coexist with the production app; the original artifact described in the first verification report predates that change. APK construction/signature verification does not prove installation or device behavior. On a connected device, install with:
 
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-A debug signature cannot update an installed upstream release signed with another key. To preserve an existing installation and its private data, build with that installation's signing key. Export saved lyrics before any uninstall or data-clearing action; this task does not uninstall or modify a phone. For rollback, restore a compatible prior build signed with the same key. Older code ignores the new preference files, and existing lyrics storage was not migrated or rewritten.
+The latest debug build installs as AirLyrics Test and does not update the production package. Keep its default storage or select a separate test folder. A debug signature cannot update an installed upstream release signed with another key, and the earlier same-ID artifact must not be installed by uninstalling the real app. This task does not uninstall or modify a phone. For rollback, restore a compatible prior build signed with the same key. Older code ignores the new preference files, and existing lyrics storage was not migrated or rewritten.
 
 ## Files and review map
 

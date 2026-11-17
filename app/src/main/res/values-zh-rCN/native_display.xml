@@ -2,11 +2,11 @@
 <resources>
     <string name="ui_native_display_title">原生歌词显示</string>
     <string name="ui_native_display_controls">锁屏、停靠与电池</string>
-    <string name="ui_hold_to_edit">长按五秒以调整</string>
+    <string name="ui_hold_to_edit">长按三秒以调整</string>
     <string name="ui_edge_docking">歌词边缘停靠</string>
     <string name="ui_hold_to_edit_hint">允许触摸时保持长按不动。启用触摸穿透时，请通过服务通知中的调整模式进入。</string>
     <string name="ui_lock_lyrics_enable">显示锁屏歌词通知</string>
-    <string name="ui_lock_lyrics_permission_hint">需要通知权限，并允许锁屏通知。最终显示样式由系统决定。</string>
+    <string name="ui_lock_lyrics_permission_hint">使用 AirLyrics 时会自动更新。请允许通知，并在手机设置中选择详细或卡片式锁屏通知。位置和展开方式由系统决定。</string>
     <string name="ui_lock_lyrics_permissions">通知权限与设置</string>
     <string name="ui_lock_lyrics_privacy">锁屏隐私</string>
     <string name="ui_lock_lyrics_private">私密（默认）</string>

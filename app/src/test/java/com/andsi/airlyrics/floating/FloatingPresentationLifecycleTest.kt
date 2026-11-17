@@ -61,6 +61,15 @@ class FloatingPresentationLifecycleTest {
     private fun notification() = shadowOf(manager).getNotification(LockScreenLyricsNotification.NOTIFICATION_ID)
     private fun line() = notification()?.extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()
 
+    @Test fun optedInCardIsPostedAutomaticallyBeforeLockAndUsesExpandedText() {
+        assertEquals("First", line())
+        assertEquals("First", notification()?.extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString())
+        setScreen(LyricsScreenClass.LOCKED_INTERACTIVE)
+        assertEquals("First", line())
+        service.applyLyricsOffset(4_000)
+        assertEquals("Second", line())
+    }
+
     @Test fun lockUnlockAndAmbientKeepDataButStopAllLiveRenderTimers() {
         val view = service.lyricsView
         setScreen(LyricsScreenClass.LOCKED_INTERACTIVE)

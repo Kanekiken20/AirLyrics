@@ -23,5 +23,5 @@ internal class StationaryHoldGesture(private val slop: Int) {
     fun consume(): Boolean = isPending.also { cancel() }
     fun cancel() { isPending = false }
 
-    companion object { const val HOLD_DURATION_MS = 5_000L }
+    companion object { const val HOLD_DURATION_MS = 3_000L }
 }
