@@ -7,12 +7,14 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.res.Configuration
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import com.andsi.airlyrics.R
+import com.andsi.airlyrics.widget.FixedLyricsPanelProvider
 import com.andsi.airlyrics.core.color.AirColorUtils
 import com.andsi.airlyrics.core.model.LyricsSettings
 import com.andsi.airlyrics.displayscope.DisplayScopeBlockReason
@@ -129,6 +131,7 @@ open class FloatingLyricsService : Service() {
             if (!shouldSyncLyrics()) return
 
             renderer.tick()
+            pushLyricsToLockScreenWidget(renderer.lastRenderedText, currentMedia.title)
             scheduleNextLyricsSync()
         }
     }
@@ -173,6 +176,45 @@ open class FloatingLyricsService : Service() {
 
     private var localizedContentLanguageTags: String? = null
 
+    private var isScreenOnWidgetReceiverRegistered = false
+
+    private val screenOnWidgetReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_SCREEN_ON) {
+                FixedLyricsPanelProvider.pushLatest(this@FloatingLyricsService, force = true)
+            }
+        }
+    }
+
+    private fun registerScreenOnWidgetRefresh() {
+        if (isScreenOnWidgetReceiverRegistered) return
+        val filter = IntentFilter(Intent.ACTION_SCREEN_ON)
+        ContextCompat.registerReceiver(
+            this,
+            screenOnWidgetReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        isScreenOnWidgetReceiverRegistered = true
+    }
+
+    private fun unregisterScreenOnWidgetRefresh() {
+        if (!isScreenOnWidgetReceiverRegistered) return
+        runCatching {
+            unregisterReceiver(screenOnWidgetReceiver)
+        }.also {
+            isScreenOnWidgetReceiverRegistered = false
+        }
+    }
+
+    internal fun pushLyricsToLockScreenWidget(lyricLine: String?, trackTitle: String?) {
+        FixedLyricsPanelProvider.updateLyrics(
+            context = this,
+            lyricLine = lyricLine,
+            trackTitle = trackTitle
+        )
+    }
+
     private val languageChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             refreshLocalizedContent()
@@ -212,6 +254,7 @@ open class FloatingLyricsService : Service() {
         startForeground(FloatingServiceNotification.NOTIFICATION_ID, FloatingServiceNotification.create(this, currentQuickControlState()))
         registerMediaReceiver()
         registerLyricsChangedReceiver()
+        registerScreenOnWidgetRefresh()
         ContextCompat.registerReceiver(
             this,
             languageChangedReceiver,
@@ -283,6 +326,8 @@ open class FloatingLyricsService : Service() {
         runCatching { unregisterReceiver(mediaReceiver) }
         runCatching { unregisterReceiver(lyricsChangedReceiver) }
         runCatching { unregisterReceiver(languageChangedReceiver) }
+        unregisterScreenOnWidgetRefresh()
+        pushLyricsToLockScreenWidget(null, null)
         if (::windowController.isInitialized) {
             windowController.hide(notifyVisibilityChanged = false)
         }

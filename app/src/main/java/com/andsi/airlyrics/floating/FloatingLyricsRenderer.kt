@@ -89,7 +89,7 @@ class FloatingLyricsRenderer(
     private var currentIsPlaying: Boolean = false
     private var lyricsOffsetMs: Long = 0L
     private var currentMessage: (() -> String)? = null
-    private var lastRenderedText: String? = null
+    internal var lastRenderedText: String? = null
 
     fun updatePlayback(positionMs: Long, isPlaying: Boolean) {
         val nowUptimeMs = uptimeMillisProvider()

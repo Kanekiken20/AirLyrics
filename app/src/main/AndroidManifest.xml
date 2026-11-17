@@ -89,6 +89,18 @@
 
         </service>
 
+        <receiver
+            android:name=".widget.FixedLyricsPanelProvider"
+            android:exported="true"
+            android:label="AirLyrics Panel">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/fixed_lyrics_panel_info" />
+        </receiver>
+
     </application>
 
 </manifest>
