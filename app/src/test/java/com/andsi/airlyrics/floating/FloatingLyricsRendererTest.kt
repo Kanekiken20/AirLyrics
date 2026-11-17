@@ -21,6 +21,7 @@ import com.andsi.airlyrics.lyrics.WordByWordLine
 import com.andsi.airlyrics.lyrics.WordByWordSegment
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -501,13 +502,13 @@ class FloatingLyricsRendererTest {
             textView = textView,
             switchAnimationMode = LyricsSwitchAnimationMode.SLIDE_UP
         )
-        renderer.updatePlayback(positionMs = 1_100L, isPlaying = false)
+        renderer.updatePlayback(positionMs = 1_100L, isPlaying = true)
         renderer.parseAndShow(
             plainLrc = "[00:01.00]first\n[00:02.00]second",
             emptyText = "empty"
         )
 
-        renderer.updatePlayback(positionMs = 2_100L, isPlaying = false)
+        renderer.updatePlayback(positionMs = 2_100L, isPlaying = true)
         renderer.tick()
 
         assertEquals("second", textView.text.toString())
@@ -521,6 +522,25 @@ class FloatingLyricsRendererTest {
         assertEquals(0f, textView.translationY)
         assertEquals(1f, textView.scaleX)
         assertEquals(1f, textView.scaleY)
+    }
+
+    @Test
+    fun pausedSeek_updatesTextWithoutStartingAnimation() {
+        val textView = RecordingAnimationView(context)
+        val renderer = renderer(
+            textView = textView,
+            switchAnimationMode = LyricsSwitchAnimationMode.SLIDE_UP
+        )
+        renderer.updatePlayback(positionMs = 1_100L, isPlaying = false)
+        renderer.parseAndShow("[00:01.00]first\n[00:02.00]second", emptyText = "empty")
+        renderer.updatePlayback(positionMs = 2_100L, isPlaying = false)
+        renderer.tick()
+
+        assertEquals("second", textView.text.toString())
+        assertTrue(textView.animationDurations.isEmpty())
+        assertNull(renderer.nextPresentationDelayMs(animateWords = true))
+        assertEquals(1f, textView.contentAlpha)
+        assertEquals(0f, textView.contentTranslationY)
     }
 
     @Test fun displaysLinkedAttributionAndClearsExpiredPayload() {

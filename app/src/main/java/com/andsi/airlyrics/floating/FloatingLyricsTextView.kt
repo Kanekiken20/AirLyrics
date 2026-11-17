@@ -63,10 +63,18 @@ internal class FloatingLyricsTextView @JvmOverloads constructor(
     private var spicyPosition: (() -> Long)? = null
     private var spicyPlaying = false
     private var spicyRequestedPosition: Long? = null
+    private var spicyRangeText: CharSequence? = null
+    private var spicyFrameRanges: List<LongRange> = emptyList()
+    private fun hasActiveSpicyFrame(): Boolean {
+        val position = spicyPosition?.invoke() ?: return false
+        return spicyFrameRanges.any { position in it }
+    }
     private val spicyVisibleRect = android.graphics.Rect()
     private val spicyFrame = object : Runnable {
         override fun run() {
             if (!previewEffectsVisible || spicyPosition == null || !spicyPlaying || !isShown || windowVisibility != VISIBLE || !isAttachedToWindow) return
+            // Visible previews own a looping clock without the service's boundary scheduler.
+            if (!preview && !hasActiveSpicyFrame()) { invalidate(); return }
             if (getLocalVisibleRect(spicyVisibleRect)) {
                 invalidate()
                 postOnAnimation(this)
@@ -78,6 +86,18 @@ internal class FloatingLyricsTextView @JvmOverloads constructor(
     }
 
     internal fun updateSpicyPlayback(position: (() -> Long)?, playing: Boolean) {
+        if (text !== spicyRangeText) {
+            spicyRangeText = text
+            val spans = text as? android.text.Spanned
+            spicyFrameRanges = if (spans == null) emptyList() else buildList {
+                for (span in spans.getSpans(0, spans.length, SpicyLyricsSpan::class.java)) {
+                    add(span.timing.startMs..(span.timing.endMs.coerceAtMost(Long.MAX_VALUE - 300) + 300))
+                }
+                for (span in spans.getSpans(0, spans.length, SpicyLineSpan::class.java)) {
+                    add(span.timing.startMs..(span.timing.endMs.coerceAtMost(Long.MAX_VALUE - 300) + 300))
+                }
+            }
+        }
         val lineActive = position != null && (text as? android.text.Spanned)?.getSpans(
             0, text.length, SpicyLineSpan::class.java
         )?.any { it.animated } == true
@@ -93,7 +113,7 @@ internal class FloatingLyricsTextView @JvmOverloads constructor(
             spicyDrawing.reset()
             spicyLineDrawing.reset()
         }
-        else if (previewEffectsVisible && playing && isShown && windowVisibility == VISIBLE && isAttachedToWindow) postOnAnimation(spicyFrame)
+        else if (previewEffectsVisible && playing && (preview || hasActiveSpicyFrame()) && isShown && windowVisibility == VISIBLE && isAttachedToWindow) postOnAnimation(spicyFrame)
         if (changed) requestLayout()
         if (needsRedraw) invalidate()
     }

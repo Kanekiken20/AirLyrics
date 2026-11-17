@@ -28,6 +28,7 @@ import com.andsi.airlyrics.i18n.localizedScriptPreferenceTitle
 import com.andsi.airlyrics.ui.components.pageContainer
 import com.andsi.airlyrics.ui.model.FloatingSettingTile
 import com.andsi.airlyrics.ui.model.MainUiHost
+import com.andsi.airlyrics.ui.pages.floating.sections.addNativeDisplaySection
 import com.andsi.airlyrics.ui.pages.floating.sections.addAnimationSection
 import com.andsi.airlyrics.ui.pages.floating.sections.addAppearanceSection
 import com.andsi.airlyrics.ui.pages.floating.sections.addBehaviorSection
@@ -125,6 +126,7 @@ internal class FloatingPageScope(
             addLyricsDisplaySection(this)
             addAnimationSection(this)
             addBehaviorSection(this)
+            addNativeDisplaySection(this)
         }
 
         list.setTag(R.id.interaction_anchor, "floating.settings")

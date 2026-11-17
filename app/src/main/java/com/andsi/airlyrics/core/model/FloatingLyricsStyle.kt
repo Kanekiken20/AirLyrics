@@ -32,7 +32,9 @@ enum class FloatingLyricsFontFamily(val key: String) {
     SANS_SERIF("sans_serif"),
     SERIF("serif"),
     MONOSPACE("monospace"),
-    CUSTOM("custom");
+    CUSTOM("custom"),
+    SOFT_INTER("soft_inter"),
+    BOLD_MANROPE("bold_manrope");
 
     companion object {
         fun fromKey(key: String?): FloatingLyricsFontFamily {

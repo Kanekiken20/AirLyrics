@@ -170,6 +170,7 @@ object FloatingLyricsStyleStore {
     }
 
     fun setStyle(context: Context, style: FloatingLyricsStyle) {
+        if (getStyle(context).maxWidthPercent != style.maxWidthPercent) FloatingOverlayStore.clearWidthOverride(context)
         prefs(context).edit {
             putString(KEY_PRESET, normalizePreset(style.presetName))
             putFloat(KEY_TEXT_SIZE, style.textSizeSp)
@@ -196,6 +197,7 @@ object FloatingLyricsStyleStore {
 
     fun applyPreset(context: Context, preset: String) {
         val values = presetValues[normalizePreset(preset)] ?: return
+        FloatingOverlayStore.clearWidthOverride(context)
         val prefs = prefs(context)
         val textAlpha = Color.alpha(prefs.getInt(KEY_TEXT_COLOR, Color.WHITE))
         prefs.edit {
@@ -279,6 +281,7 @@ object FloatingLyricsStyleStore {
     }
 
     fun setMaxWidthPercent(context: Context, percent: Int) {
+        FloatingOverlayStore.clearWidthOverride(context)
         prefs(context).setInt(KEY_MAX_WIDTH_PERCENT, percent.coerceIn(45, 100))
     }
 

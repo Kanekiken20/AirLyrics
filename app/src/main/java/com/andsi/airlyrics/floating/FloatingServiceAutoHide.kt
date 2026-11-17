@@ -230,7 +230,8 @@ private fun FloatingLyricsService.hideLyricsForAutoHide() {
         return
     }
 
-    stopLyricsSync()
+    renderer.setRenderingState(false, false)
+    scheduleNextLyricsSync()
     scheduleSelectedCurrentMediaInfoRefresh()
     refreshQuickControls()
 }

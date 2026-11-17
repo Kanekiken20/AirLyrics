@@ -26,10 +26,14 @@ internal fun FloatingLyricsService.handleCommand(intent: Intent?, startId: Int) 
         FloatingServiceCommand.ToggleAdjustModeFromNotification -> toggleAdjustModeFromNotification()
         FloatingServiceCommand.ApplyAutoHideSettings -> applyAutoHideSettings()
         FloatingServiceCommand.ApplyDisplayScope -> applyDisplayScopeSetting()
-        FloatingServiceCommand.RefreshText -> renderer.refresh()
+        FloatingServiceCommand.RefreshText -> {
+            renderer.refresh()
+            refreshLyricsPresentation()
+        }
         FloatingServiceCommand.ApplyStyle -> {
             val applied = windowController.applyStyle()
             if (applied) renderer.refresh()
+            refreshLyricsPresentation()
             refreshQuickControls(if (applied) null else getString(R.string.ui_overlay_update_failed))
         }
         FloatingServiceCommand.ReloadLyrics -> reloadCurrentLyrics()
@@ -62,6 +66,7 @@ internal fun FloatingLyricsService.showLyrics(updateDesiredVisible: Boolean = tr
         hideLyricsForDisplayScope()
         return false
     }
+    windowController.setPresentationVisible(screenClass == LyricsScreenClass.UNLOCKED)
     val shown = runCatching { windowController.show() }.getOrElse {
         windowController.hide()
         false
@@ -76,6 +81,7 @@ internal fun FloatingLyricsService.showLyrics(updateDesiredVisible: Boolean = tr
         }
         reevaluateAutoHide()
     }
+    refreshLyricsPresentation()
     refreshQuickControls()
     return shown
 }
@@ -86,6 +92,7 @@ internal fun FloatingLyricsService.hideLyrics() {
     displayScopeBlockReason = null
     stopDisplayScopeObservation()
     QuickFloatingStore.setDesiredVisible(this, false)
+    lockScreenNotification.clear()
     val hidden = if (isWindowControllerReady()) {
         runCatching { windowController.hide() }.getOrDefault(false)
     } else {
@@ -141,11 +148,16 @@ internal fun FloatingLyricsService.toggleClickThroughFromNotification() {
 internal fun FloatingLyricsService.toggleAdjustModeFromNotification() {
     val currentlyEditing = !FloatingLyricsStyleStore.isLocked(this) &&
         !FloatingLyricsStyleStore.isClickThrough(this)
-    val nextEditing = !currentlyEditing
+    val nextEditing = !currentlyEditing || !windowController.isEditing
+    if (!nextEditing) windowController.finishEditMode(commit = true)
 
     val lockedUpdated = windowController.setLocked(!nextEditing)
     val clickThroughUpdated = windowController.setClickThrough(!nextEditing)
 
+    if (nextEditing && lockedUpdated && clickThroughUpdated && screenClass == LyricsScreenClass.UNLOCKED) {
+        windowController.enterEditMode()
+    }
+    refreshLyricsPresentation()
     if (!lockedUpdated || !clickThroughUpdated) {
         refreshQuickControls(getString(R.string.ui_overlay_update_failed))
     } else {

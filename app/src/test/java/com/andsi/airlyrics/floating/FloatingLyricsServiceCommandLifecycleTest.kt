@@ -252,10 +252,10 @@ class FloatingLyricsServiceCommandLifecycleTest {
 
         assertTrue(windowManager.views.any { it === lyricsView })
         assertNotNull(service.activeLyricsLookupRequestKey)
-        assertTrue(service.syncHandler.hasCallbacks(service.syncRunnable))
+        assertFalse("Paused playback must have no prediction timer", service.syncHandler.hasCallbacks(service.syncRunnable))
         assertTrue(service.syncHandler.hasCallbacks(service.pauseAutoHideRunnable))
         assertTrue(service.syncHandler.hasCallbacks(service.unavailableLyricsAutoHideRunnable))
-        assertTrue(service.syncHandler.hasCallbacks(service.currentMediaRefreshRunnable))
+        assertFalse("Media callbacks replace polling while paused", service.syncHandler.hasCallbacks(service.currentMediaRefreshRunnable))
 
         controller.destroy()
         serviceController = null

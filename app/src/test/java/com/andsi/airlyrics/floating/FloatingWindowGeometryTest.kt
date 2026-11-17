@@ -27,6 +27,14 @@ class FloatingWindowGeometryTest {
         assertEquals(FloatingPosition(1f, 1f), geometry.migrate(999, 999, 8))
     }
 
+    @Test fun resizedDimensionsClampToReachableBoundsForTinyScreens() {
+        assertEquals(144, FloatingWindowGeometry.dimension(400, 0.1f, 144))
+        assertEquals(400, FloatingWindowGeometry.dimension(400, 8f, 144))
+        assertEquals(80, FloatingWindowGeometry.dimension(80, 0.5f, 144))
+        assertEquals(400, FloatingWindowGeometry.dimension(400, Float.NaN, 48))
+        assertEquals(1, FloatingWindowGeometry.dimension(0, 0.4f, 48))
+    }
+
     @Test fun widthsRespectStyleLimits() {
         assertEquals(850, FloatingWindowGeometry.width(1000, 85))
         assertEquals(1000, FloatingWindowGeometry.width(1000, 100))

@@ -11,8 +11,10 @@ import com.andsi.airlyrics.floating.playbackLyricsKey
 import org.junit.Assert.assertNotEquals
 import org.robolectric.Shadows.shadowOf
 import android.media.session.PlaybackState
+import android.os.SystemClock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -113,6 +115,44 @@ class CurrentMediaReaderTest {
                 case.expectedPositionMs,
                 CurrentMediaReader.estimatedPositionMs(case.state, case.elapsedRealtimeMs)
             )
+        }
+    }
+
+    @Test
+    fun estimatedPositionMs_invalidSpeedUsesNormalSpeed() {
+        for (invalidSpeed in listOf(0f, -1f, Float.NaN, Float.POSITIVE_INFINITY)) {
+            val state = playbackState(PlaybackState.STATE_PLAYING, 10_000L, invalidSpeed, 2_000L)
+
+            assertEquals(14_000L, CurrentMediaReader.estimatedPositionMs(state, 6_000L))
+        }
+    }
+
+    @Suppress("UsePropertyAccessSyntax")
+    @Test
+    fun controllerSnapshot_positionSpeedAndSampleReferToSameInstant() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val session = MediaSession(context, "snapshot-clock")
+        val controller = MediaController(context, session.sessionToken)
+        val state = playbackState(PlaybackState.STATE_PLAYING, 10_000L, 1.5f, 1L)
+        try {
+            shadowOf(controller).setPackageName("com.example.player")
+            shadowOf(controller).setMetadata(
+                MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE, "Song").build()
+            )
+            shadowOf(controller).setPlaybackState(state)
+            val before = SystemClock.elapsedRealtime()
+
+            val snapshot = requireNotNull(CurrentMediaReader.currentMediaFromController(controller))
+
+            val after = SystemClock.elapsedRealtime()
+            assertTrue(snapshot.sampledAtElapsedRealtimeMs in before..after)
+            assertEquals(1.5f, snapshot.playbackSpeed, 0f)
+            assertEquals(
+                CurrentMediaReader.estimatedPositionMs(state, snapshot.sampledAtElapsedRealtimeMs),
+                snapshot.positionMs
+            )
+        } finally {
+            session.release()
         }
     }
 

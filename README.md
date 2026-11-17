@@ -67,12 +67,18 @@ For more settings and help with common problems, see the [User Guide](docs/USER_
   lyrics can be saved and edited but cannot be displayed in the overlay.
   Manual word-by-word search also supports NetEase Cloud Music, Kugou, and QQ Music.
 - **Overlay appearance**: Adjust the font, weight, colors, opacity, glow, window style, and transition
-  animations, with a live preview as you make changes. You can also import your own fonts.
+  animations, with a live preview as you make changes. Bundled Inter and Manrope styles include their
+  open-source licenses; custom font import remains available.
 - **Themes**: Choose a light or dark theme, or follow the system setting, with several accent colors
   available.
 - **Display controls**: Automatically hide lyrics when playback is paused, lock the window, let taps
   pass through it, or control it from the notification. You can also limit the overlay to selected
-  apps.
+  apps. A five-second stationary hold opens native resize/edit controls; edge docking leaves a small
+  handle. Click-through overlays retain the notification adjustment route.
+- **Lock-screen lyrics**: Opt-in silent lyric notifications with private/public/hidden visibility and
+  metadata controls. Galaxy A25 / One UI 8.5 live AOD compatibility is **unverified**; no live-AOD
+  renderer is enabled. See the [native display guide](docs/NATIVE_LYRICS_DISPLAY.md) and
+  [verification results](docs/IMPLEMENTATION_VERIFICATION.md) for behavior and limits.
 - **Lyrics management**: Save timing offsets for individual songs, and browse, search, edit, export,
   import, or delete saved lyrics, including batch actions. Edit word text and timing in word-by-word lyrics.
 
@@ -235,6 +241,7 @@ Thanks so much to everyone who has shared feedback or contributed.
 
 ## Acknowledgments
 
+- [Inter and Manrope](app/src/main/assets/fonts/NOTICE.txt): bundled font families under SIL OFL 1.1.
 - [waylyrics](https://github.com/waylyrics/waylyrics)
 - [Lyrics-Helper](https://github.com/ChouChiu/Lyrics-Helper): cloud QRC decryption (Apache-2.0; [notice](app/src/main/assets/third_party/lyrics-helper/NOTICE)).
 

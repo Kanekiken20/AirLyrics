@@ -15,6 +15,9 @@ data class CurrentMediaInfo(
     val positionMs: Long,
     val snapshotSequence: Long = UNSPECIFIED_SNAPSHOT_SEQUENCE,
     val spotifyTrackId: String? = null,
+    /** Speed and monotonic sample time belong to [positionMs], including broadcast transit. */
+    val playbackSpeed: Float = 1f,
+    val sampledAtElapsedRealtimeMs: Long = 0L,
 ) {
     val isEmpty: Boolean
         get() = title.isBlank()

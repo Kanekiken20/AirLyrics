@@ -67,11 +67,14 @@ class MediaNotificationListenerService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
+        // Line notifications and foreground controls must not feed back into media discovery.
+        if (sbn?.packageName == packageName) return
         scheduleMediaSessionRescan()
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
+        if (sbn?.packageName == packageName) return
         scheduleMediaSessionRescan()
     }
 

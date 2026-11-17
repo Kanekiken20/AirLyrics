@@ -34,7 +34,8 @@ internal object FloatingServiceNotification {
         val desiredVisible: Boolean = visible,
         val locked: Boolean,
         val clickThrough: Boolean,
-        val feedback: String? = null
+        val feedback: String? = null,
+        val editorActive: Boolean? = null
     )
 
     fun create(context: Context, state: QuickControlState): Notification {
@@ -160,7 +161,7 @@ internal object FloatingServiceNotification {
 
     private fun QuickControlState.windowModeText(context: Context): CharSequence {
         val messageRes = when {
-            !locked && !clickThrough -> R.string.ui_adjustment_mode
+            !locked && !clickThrough -> if (editorActive == false) R.string.ui_draggable else R.string.ui_adjustment_mode
             locked && clickThrough -> R.string.ui_lock_touch
             locked && !clickThrough -> R.string.ui_locked_touchable
             else -> R.string.ui_draggable_click_through

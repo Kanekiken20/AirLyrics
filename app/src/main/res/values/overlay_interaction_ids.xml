@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item type="id" name="overlay_resize_wider" />
+    <item type="id" name="overlay_resize_narrower" />
+    <item type="id" name="overlay_resize_taller" />
+    <item type="id" name="overlay_resize_shorter" />
+</resources>

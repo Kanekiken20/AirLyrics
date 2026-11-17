@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_font_soft_inter">Soft · Apple-inspired (Inter)</string>
+    <string name="ui_font_bold_manrope">Bold · Spotify-inspired (Manrope)</string>
+    <string name="ui_font_curated_hint">These freely licensed fonts start at semi-bold and extra-bold weights. Change the weight independently above. Android supplies missing script and emoji glyphs.</string>
+    <string name="ui_font_preview_sample" translatable="false">Evening light\nA longer line follows the quiet road — café 🌙\nمرحبا بالعالم\n夜空 / Night sky</string>
+</resources>

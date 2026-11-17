@@ -37,6 +37,8 @@ internal fun floatingFontFamilyTitleRes(fontFamily: FloatingLyricsFontFamily): I
     FloatingLyricsFontFamily.SERIF -> R.string.ui_serif
     FloatingLyricsFontFamily.MONOSPACE -> R.string.ui_monospace
     FloatingLyricsFontFamily.CUSTOM -> R.string.ui_custom_font
+    FloatingLyricsFontFamily.SOFT_INTER -> R.string.ui_font_soft_inter
+    FloatingLyricsFontFamily.BOLD_MANROPE -> R.string.ui_font_bold_manrope
 }
 
 internal fun localizedFloatingFontWeightTitle(fontWeight: Int): String {

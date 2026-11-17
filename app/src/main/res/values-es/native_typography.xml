@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_font_soft_inter">Suave · inspirado en Apple (Inter)</string>
+    <string name="ui_font_bold_manrope">Negrita · inspirado en Spotify (Manrope)</string>
+    <string name="ui_font_curated_hint">Estas fuentes de licencia libre empiezan con pesos seminegrita y extranegrita. Puedes cambiar el peso por separado arriba. Android proporciona los caracteres y emojis que falten.</string>
+</resources>

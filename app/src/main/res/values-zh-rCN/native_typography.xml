@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_font_soft_inter">柔和 · Apple 风格 (Inter)</string>
+    <string name="ui_font_bold_manrope">粗体 · Spotify 风格 (Manrope)</string>
+    <string name="ui_font_curated_hint">这些可自由分发的字体初始使用半粗体和特粗体字重。可在上方单独调整字重。Android 会为缺少的文字和表情符号提供回退字体。</string>
+</resources>

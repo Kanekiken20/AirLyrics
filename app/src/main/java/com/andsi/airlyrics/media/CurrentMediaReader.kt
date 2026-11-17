@@ -123,6 +123,8 @@ object CurrentMediaReader {
 
         val artist = song.artist.orEmpty()
         val state = this.playbackState
+        // Use the same clock sample for interpolation and its downstream presentation snapshot.
+        val sampledAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
 
         return CurrentMediaInfo(
             sourcePackage = this.packageName,
@@ -131,7 +133,9 @@ object CurrentMediaReader {
             album = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM).orEmpty(),
             durationMs = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION),
             isPlaying = state?.state == PlaybackState.STATE_PLAYING,
-            positionMs = estimatedPositionMs(state),
+            positionMs = estimatedPositionMs(state, sampledAtElapsedRealtimeMs),
+            playbackSpeed = normalizedPlaybackSpeed(state),
+            sampledAtElapsedRealtimeMs = sampledAtElapsedRealtimeMs,
             snapshotSequence = MediaSnapshotSequencer.next(),
             spotifyTrackId = SpotifyTrackId.fromMediaSession(
                 packageName,
@@ -157,7 +161,10 @@ object CurrentMediaReader {
 
         val elapsedMs = (elapsedRealtimeMs - state.lastPositionUpdateTime)
             .coerceAtLeast(0L)
-        val speed = state.playbackSpeed.takeIf { it > 0f } ?: 1f
+        val speed = normalizedPlaybackSpeed(state)
         return (basePositionMs + (elapsedMs * speed).toLong()).coerceAtLeast(0L)
     }
+
+    private fun normalizedPlaybackSpeed(state: PlaybackState?): Float =
+        state?.playbackSpeed?.takeIf { it.isFinite() && it > 0f } ?: 1f
 }

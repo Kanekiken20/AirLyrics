@@ -100,6 +100,17 @@ internal interface FloatingUiHost {
     fun setLyricsLineDisplayMode(mode: LyricsLineDisplayMode)
     fun setLyricsSwitchAnimationMode(mode: LyricsSwitchAnimationMode)
     fun setWordByWordLyricsEnabled(enabled: Boolean)
+    // Defaults keep preview/test hosts independent of persistence. The application host owns stores.
+    fun lyricsDisplaySettings() = com.andsi.airlyrics.core.model.LyricsDisplaySettings()
+    fun setLyricsDisplayEnabled(enabled: Boolean) = Unit
+    fun setLyricsDisplayPrivacy(privacy: com.andsi.airlyrics.core.model.LockScreenLyricPrivacy) = Unit
+    fun setLyricsDisplayShowMetadata(enabled: Boolean) = Unit
+    fun setLyricsDisplayCompact(compact: Boolean) = Unit
+    fun setLyricsDisplayMinimalMotion(minimalMotion: Boolean) = Unit
+    fun holdToEditEnabled(): Boolean = true
+    fun setHoldToEditEnabled(enabled: Boolean) = Unit
+    fun edgeDockingEnabled(): Boolean = true
+    fun setEdgeDockingEnabled(enabled: Boolean) = Unit
     fun notifyFloatingStyleChanged()
     fun notifyFloatingTextChanged()
 }

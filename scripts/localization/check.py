@@ -27,6 +27,7 @@ DEFAULT_RESOURCE_CJK_ALLOWLIST = {
     'ui_next_lyric_preview',
     'ui_previous_lyric_preview',
     'ui_this_is_a_lyric_preview',
+    'ui_font_preview_sample',
 }
 
 # Input aliases and parser vocabulary are external-data contracts, not UI copy.
@@ -56,23 +57,27 @@ for path in Path('app/src/main/java').rglob('*.kt'):
 
 print('Checking Android string resources...')
 resource_paths = [
-    Path('app/src/main/res/values/strings.xml'),
-    Path('app/src/main/res/values-es/strings.xml'),
-    Path('app/src/main/res/values-zh-rCN/strings.xml'),
-    Path('app/src/main/res/values-zh-rTW/strings.xml'),
+    Path('app/src/main/res/values'),
+    Path('app/src/main/res/values-es'),
+    Path('app/src/main/res/values-zh-rCN'),
+    Path('app/src/main/res/values-zh-rTW'),
 ]
 resources: dict[str, dict[str, str]] = {}
 non_translatable_names: set[str] = set()
 for path in resource_paths:
-    try:
-        root = ET.parse(path).getroot()
-    except Exception as exc:
-        fail(f'{path}: XML parse failed: {exc}')
-        continue
-
     strings: dict[str, str] = {}
     names: list[str] = []
-    for el in root.findall('string'):
+    elements = []
+    # Android merges string declarations from every XML file in a values folder.
+    # Check that same merged namespace, including duplicates across files.
+    for xml_path in sorted(path.glob('*.xml')):
+        try:
+            root = ET.parse(xml_path).getroot()
+        except Exception as exc:
+            fail(f'{xml_path}: XML parse failed: {exc}')
+            continue
+        elements.extend((xml_path, el) for el in root.findall('string'))
+    for xml_path, el in elements:
         name = el.attrib.get('name', '')
         value = ''.join(el.itertext())
         names.append(name)
@@ -81,19 +86,19 @@ for path in resource_paths:
             non_translatable_names.add(name)
 
         if not STRING_NAME_RE.match(name):
-            fail(f'{path}: invalid string key name: {name}')
+            fail(f'{xml_path}: invalid string key name: {name}')
         if len(name) > MAX_STRING_KEY_LENGTH:
-            fail(f'{path}: string key is too long ({len(name)}>{MAX_STRING_KEY_LENGTH}): {name}')
+            fail(f'{xml_path}: string key is too long ({len(name)}>{MAX_STRING_KEY_LENGTH}): {name}')
         if re.search(r'_[0-9a-f]{6}$', name):
-            fail(f'{path}: generated hash-like string key is not allowed: {name}')
+            fail(f'{xml_path}: generated hash-like string key is not allowed: {name}')
         if name not in NUMERIC_KEY_ALLOWLIST and re.search(r'_(?:\d+_){2,}\d+|_\d+s?$', name):
-            fail(f'{path}: sentence-derived numeric/time fragment in string key: {name}')
+            fail(f'{xml_path}: sentence-derived numeric/time fragment in string key: {name}')
         if name.endswith('_') or '__' in name:
-            fail(f'{path}: malformed string key: {name}')
+            fail(f'{xml_path}: malformed string key: {name}')
 
         percent_errors = stray_percent_positions(value)
         if percent_errors:
-            fail(f'{path}: unescaped or invalid percent placeholder in {name}')
+            fail(f'{xml_path}: unescaped or invalid percent placeholder in {name}')
 
     duplicates = sorted({name for name in names if names.count(name) > 1})
     if duplicates:

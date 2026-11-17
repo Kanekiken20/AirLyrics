@@ -1,0 +1,27 @@
+AirLyrics bundled typography
+
+Inter (Soft / Apple-inspired) and Manrope (Bold / Spotify-inspired) are
+independent typefaces distributed under the SIL Open Font License 1.1.
+They are not Apple or Spotify proprietary fonts and imply no affiliation.
+The original unmodified upstream font files and full license notices ship
+together in this directory inside the APK.
+
+Source: https://github.com/google/fonts
+Pinned source revision: 7af0d90b4d532ffa4b041937b560c6df4e7b1e95
+
+inter.ttf
+https://raw.githubusercontent.com/google/fonts/7af0d90b4d532ffa4b041937b560c6df4e7b1e95/ofl/inter/Inter%5Bopsz,wght%5D.ttf
+SHA-256: 29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031
+
+manrope.ttf
+https://raw.githubusercontent.com/google/fonts/7af0d90b4d532ffa4b041937b560c6df4e7b1e95/ofl/manrope/Manrope%5Bwght%5D.ttf
+SHA-256: 3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6
+
+Inter-OFL.txt
+https://raw.githubusercontent.com/google/fonts/7af0d90b4d532ffa4b041937b560c6df4e7b1e95/ofl/inter/OFL.txt
+SHA-256: 5b9321a4298cfeb6b34354164a1c3afc3db114569984c502b9b35d988fd58c57
+
+Manrope-OFL.txt
+https://raw.githubusercontent.com/google/fonts/7af0d90b4d532ffa4b041937b560c6df4e7b1e95/ofl/manrope/OFL.txt
+SHA-256: 58172e0c0fac2cda8a37b348164bb55e44b0e69051e557e92b1d3f6910141f7b
+

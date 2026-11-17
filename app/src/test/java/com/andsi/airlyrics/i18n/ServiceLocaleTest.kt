@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.andsi.airlyrics.R
 import com.andsi.airlyrics.feedback.ToastAirFeedback
 import com.andsi.airlyrics.floating.FloatingLyricsService
+import com.andsi.airlyrics.floating.showLyrics
 import com.andsi.airlyrics.floating.FloatingServiceNotification
 import com.andsi.airlyrics.floating.selectMediaSource
 import com.andsi.airlyrics.media.MediaNotificationListenerService
@@ -96,7 +97,7 @@ class ServiceLocaleTest {
         val controller = Robolectric.buildService(FloatingLyricsService::class.java).create()
         val service = controller.get()
         try {
-            assertTrue(service.windowController.show())
+            assertTrue(service.showLyrics())
             assertEquals(service.getString(R.string.ui_waiting_for_media_message), service.lyricsView?.text.toString())
             service.selectMediaSource(null)
             val traditionalStatus = service.lyricsView?.text.toString()

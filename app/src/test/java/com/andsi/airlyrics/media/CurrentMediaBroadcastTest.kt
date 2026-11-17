@@ -24,7 +24,9 @@ class CurrentMediaBroadcastTest {
             durationMs = 180_000L,
             isPlaying = true,
             positionMs = 42_000L,
-            snapshotSequence = 7L
+            snapshotSequence = 7L,
+            playbackSpeed = 1.5f,
+            sampledAtElapsedRealtimeMs = 12_345L
         )
 
         val decoded = CurrentMediaBroadcast.readMediaUpdate(
@@ -32,6 +34,36 @@ class CurrentMediaBroadcastTest {
         )
 
         assertEquals(media, decoded)
+    }
+
+    @Test
+    fun legacySnapshot_defaultsToNormalSpeedAndUnspecifiedSample() {
+        val intent = Intent("com.andsi.airlyrics.MEDIA_UPDATE")
+            .putExtra("sourcePackage", "com.example.player")
+            .putExtra("title", "Song")
+            .putExtra("position", 42_000L)
+
+        val decoded = requireNotNull(CurrentMediaBroadcast.readMediaUpdate(intent))
+
+        assertEquals(1f, decoded.playbackSpeed, 0f)
+        assertEquals(0L, decoded.sampledAtElapsedRealtimeMs)
+        assertEquals(42_000L, decoded.positionMs)
+    }
+
+    @Test
+    fun invalidClockFields_areNormalizedOnReceipt() {
+        for (invalidSpeed in listOf(0f, -1f, Float.NaN, Float.POSITIVE_INFINITY)) {
+            val intent = Intent("com.andsi.airlyrics.MEDIA_UPDATE")
+                .putExtra("sourcePackage", "com.example.player")
+                .putExtra("title", "Song")
+                .putExtra("playbackSpeed", invalidSpeed)
+                .putExtra("sampledAtElapsedRealtimeMs", -1L)
+
+            val decoded = requireNotNull(CurrentMediaBroadcast.readMediaUpdate(intent))
+
+            assertEquals(1f, decoded.playbackSpeed, 0f)
+            assertEquals(0L, decoded.sampledAtElapsedRealtimeMs)
+        }
     }
 
     @Test

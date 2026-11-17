@@ -20,6 +20,11 @@ internal fun FloatingLyricsService.shouldObserveSelectedMedia(): Boolean {
         !selectedSourcePackage.isNullOrBlank()
 }
 
+/** Media callbacks remain primary. Only visible, playing surfaces have a sparse recovery poll. */
+internal fun FloatingLyricsService.shouldPollSelectedMedia(): Boolean =
+    shouldObserveSelectedMedia() && currentMedia.isPlaying && !currentMedia.isEmpty &&
+        (windowController.isContentVisible || shouldPresentLockScreenLyrics()) && isInteractiveLyricsScreen()
+
 internal fun FloatingLyricsService.startSelectedMediaObservation() {
     if (!shouldObserveSelectedMedia()) {
         stopSelectedMediaObservation()
@@ -36,7 +41,7 @@ internal fun FloatingLyricsService.stopSelectedMediaObservation() {
 
 internal fun FloatingLyricsService.scheduleSelectedCurrentMediaInfoRefresh() {
     syncHandler.removeCallbacks(currentMediaRefreshRunnable)
-    if (shouldObserveSelectedMedia()) {
+    if (shouldPollSelectedMedia()) {
         syncHandler.postDelayed(
             currentMediaRefreshRunnable,
             FloatingLyricsService.CURRENT_MEDIA_REFRESH_INTERVAL_MS
@@ -60,14 +65,23 @@ internal fun FloatingLyricsService.applyCurrentMediaInfo(media: CurrentMediaInfo
     if (!shouldAcceptMediaUpdate(media.sourcePackage)) return false
     if (!mediaSnapshotGate.markAcceptedIfFresh(media)) return false
 
+    val previousPlaybackKey = currentMedia.takeUnless { it.isEmpty }?.playbackLyricsKey()
     currentMedia = media
+    sourceLost = false
+    if (previousPlaybackKey != media.playbackLyricsKey()) {
+        sourceGeneration++
+        renderer.show { getString(R.string.ui_loading) }
+        lockScreenNotification.clear()
+    }
 
     syncHandler.removeCallbacks(mediaRestoreRunnable)
     mediaRestoreAttempt = 0
 
     renderer.updatePlayback(
         positionMs = media.positionMs,
-        isPlaying = media.isPlaying
+        isPlaying = media.isPlaying,
+        speed = media.playbackSpeed,
+        sampledAtElapsedRealtimeMs = media.sampledAtElapsedRealtimeMs
     )
     renderer.setLyricsOffset(LyricsOffsetStore.getOffsetMs(this, media.toSongIdentity()))
     reevaluateAutoHide()
@@ -86,7 +100,9 @@ internal fun FloatingLyricsService.applyCurrentMediaInfo(media: CurrentMediaInfo
         com.andsi.airlyrics.settings.store.LyricsSettingsStore.isAutoSearchOnlineEnabled(this)
     if (samePlayback && !retryWithId) {
         renderer.tick()
+        publishLockScreenLine()
         scheduleNextLyricsSync()
+        scheduleSelectedCurrentMediaInfoRefresh()
         return true
     }
     lastLookupSpotifyTrackId = media.spotifyTrackId
@@ -95,7 +111,7 @@ internal fun FloatingLyricsService.applyCurrentMediaInfo(media: CurrentMediaInfo
     lastPlaybackLyricsKey = playbackLyricsKey
     activeLyricsLookupRequestKey = lookupRequestKey
     loadLyricsForSong(media = media, lookupRequestKey = lookupRequestKey)
-
+    scheduleSelectedCurrentMediaInfoRefresh()
     return true
 }
 
@@ -119,7 +135,7 @@ internal fun FloatingLyricsService.scheduleCurrentMediaRestore() {
 }
 
 internal fun FloatingLyricsService.restoreCurrentMediaOrRetry() {
-    if (!currentMedia.isEmpty) return
+    if (!currentMedia.isEmpty || !isInteractiveLyricsScreen()) return
     if (!QuickFloatingStore.isDesiredVisible(this)) return
     if (!isWindowControllerReady() || !windowController.isVisible) return
     if (selectedSourcePackage.isNullOrBlank()) return
@@ -164,13 +180,21 @@ internal fun FloatingLyricsService.handleMediaSourceLost(sourcePackage: String) 
     if (sourcePackage != selectedSourcePackage) return
     if (currentMedia.isEmpty || currentMedia.sourcePackage != sourcePackage) return
 
-    val pausedPosition = renderer.getEstimatedPositionMs()
+    sourceLost = true
+    if (activeLyricsLookupRequestKey != null || pendingLyricsMedia != null) lastPlaybackLyricsKey = null
+    pendingLyricsMedia = null
+    activeLyricsLookupRequestKey = null
+    lyricsLookupRunner.cancelActive()
+    lockScreenNotification.clear()
+    val pausedPosition = (renderer.getEstimatedPositionMs() - LyricsOffsetStore.getOffsetMs(this, currentMedia.toSongIdentity())).coerceAtLeast(0)
     currentMedia = currentMedia.copy(
         isPlaying = false,
         positionMs = pausedPosition
     )
     renderer.updatePlayback(positionMs = pausedPosition, isPlaying = false)
     renderer.refresh()
+    stopLyricsSync()
+    stopSelectedMediaObservation()
     reevaluateAutoHide()
 }
 

@@ -60,6 +60,9 @@ import com.andsi.airlyrics.media.displayText
 import com.andsi.airlyrics.media.toSongIdentity
 import com.andsi.airlyrics.settings.store.AppSettingsStore
 import com.andsi.airlyrics.settings.store.DisplayScopeStore
+import com.andsi.airlyrics.settings.store.LyricsDisplaySettingsStore
+import com.andsi.airlyrics.settings.store.FloatingOverlayStore
+import com.andsi.airlyrics.core.model.LockScreenLyricPrivacy
 import com.andsi.airlyrics.settings.store.FloatingLyricsStyleStore
 import com.andsi.airlyrics.settings.store.FloatingLyricsFontStore
 import com.andsi.airlyrics.settings.store.LyricsOffsetStore
@@ -265,6 +268,16 @@ internal class MainActivityUiHost(
         onClose: () -> Unit,
         content: LinearLayout.() -> Unit
     ): FloatingFocusBubbleHandle = floatingFocusBubbleImpl(title, subtitle, onReset, onClose, content)
+    override fun lyricsDisplaySettings() = LyricsDisplaySettingsStore.get(this)
+    override fun setLyricsDisplayEnabled(enabled: Boolean) = LyricsDisplaySettingsStore.setEnabled(this, enabled)
+    override fun setLyricsDisplayPrivacy(privacy: LockScreenLyricPrivacy) = LyricsDisplaySettingsStore.setPrivacy(this, privacy)
+    override fun setLyricsDisplayShowMetadata(enabled: Boolean) = LyricsDisplaySettingsStore.setShowMetadata(this, enabled)
+    override fun setLyricsDisplayCompact(compact: Boolean) = LyricsDisplaySettingsStore.setCompact(this, compact)
+    override fun setLyricsDisplayMinimalMotion(minimalMotion: Boolean) = LyricsDisplaySettingsStore.setMinimalMotion(this, minimalMotion)
+    override fun holdToEditEnabled() = FloatingOverlayStore.isHoldToEditEnabled(this)
+    override fun setHoldToEditEnabled(enabled: Boolean) = FloatingOverlayStore.setHoldToEditEnabled(this, enabled)
+    override fun edgeDockingEnabled() = FloatingOverlayStore.isDockingEnabled(this)
+    override fun setEdgeDockingEnabled(enabled: Boolean) = FloatingOverlayStore.setDockingEnabled(this, enabled)
     override fun floatingStyle(): FloatingLyricsStyle = FloatingLyricsStyleStore.getStyle(this)
     override fun floatingStyleDefaults(preset: String): FloatingLyricsStyle = FloatingLyricsStyleStore.getPresetDefaults(preset)
     override fun floatingPresets() = FloatingLyricsStyleStore.presets

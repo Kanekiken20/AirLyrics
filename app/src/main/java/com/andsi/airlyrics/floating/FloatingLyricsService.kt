@@ -3,6 +3,7 @@ package com.andsi.airlyrics.floating
 import com.andsi.airlyrics.lyrics.LyricsSearchCoordinator
 import com.andsi.airlyrics.core.model.SongIdentity
 import android.app.Service
+import android.content.SharedPreferences
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.res.Configuration
@@ -35,6 +36,23 @@ import com.andsi.airlyrics.settings.store.LyricsSettingsStore
 
 open class FloatingLyricsService : Service() {
     internal lateinit var windowController: FloatingLyricsWindow
+    internal var screenMonitor: LyricsScreenMonitor? = null
+    internal var screenClass = LyricsScreenClass.UNKNOWN
+    internal var presentationAnimationAllowed = false
+    internal var sourceGeneration = 0L
+    internal var sourceLost = false
+    internal var pendingLyricsMedia: CurrentMediaInfo? = null
+    internal var destroyed = false
+    internal val lockScreenNotification by lazy(LazyThreadSafetyMode.NONE) { LockScreenLyricsNotification(this) }
+    private val displayPreferenceStores = mutableListOf<SharedPreferences>()
+    private val displayPreferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        requestPresentationRefresh()
+    }
+    internal val presentationRefreshRunnable = Runnable { if (!destroyed) refreshLyricsPresentation() }
+    internal fun requestPresentationRefresh() {
+        syncHandler.removeCallbacks(presentationRefreshRunnable)
+        if (!destroyed) syncHandler.post(presentationRefreshRunnable)
+    }
     private val feedbackDelegate = lazy(LazyThreadSafetyMode.NONE) {
         ToastAirFeedback(
             context = this,
@@ -128,7 +146,8 @@ open class FloatingLyricsService : Service() {
         override fun run() {
             if (!shouldSyncLyrics()) return
 
-            renderer.tick()
+            if (windowController.isContentVisible) renderer.tick()
+            publishLockScreenLine()
             scheduleNextLyricsSync()
         }
     }
@@ -148,9 +167,7 @@ open class FloatingLyricsService : Service() {
     internal val currentMediaRefreshRunnable = object : Runnable {
         override fun run() {
             refreshSelectedCurrentMediaInfo()
-            if (shouldObserveSelectedMedia()) {
-                syncHandler.postDelayed(this, CURRENT_MEDIA_REFRESH_INTERVAL_MS)
-            }
+            scheduleSelectedCurrentMediaInfoRefresh()
         }
     }
 
@@ -185,6 +202,7 @@ open class FloatingLyricsService : Service() {
         localizedContentLanguageTags = languageTags
         if (feedbackDelegate.isInitialized()) feedback.dismiss()
         renderer.refresh()
+        publishLockScreenLine()
         refreshQuickControls()
     }
 
@@ -206,8 +224,24 @@ open class FloatingLyricsService : Service() {
                 stopLyricsSync()
             }
             broadcastWindowVisibility(visible)
+            requestPresentationRefresh()
         }
 
+        renderer.onTimelineChanged = ::requestPresentationRefresh
+        windowController.onInteractionChanged = {
+            requestPresentationRefresh()
+            refreshQuickControls()
+        }
+        screenMonitor = LyricsScreenMonitor(this, syncHandler, ::refreshLyricsPresentation).also { it.start() }
+        screenClass = screenMonitor?.screenClass() ?: LyricsScreenClass.UNKNOWN
+        windowController.setPresentationVisible(screenClass == LyricsScreenClass.UNLOCKED)
+        renderer.setRenderingState(false, false)
+        listOf("lyrics_display", "floating_overlay_geometry").forEach { name ->
+            getSharedPreferences(name, Context.MODE_PRIVATE).also {
+                it.registerOnSharedPreferenceChangeListener(displayPreferenceListener)
+                displayPreferenceStores += it
+            }
+        }
         prepareDisplayScopeStateForServiceStart()
         startForeground(FloatingServiceNotification.NOTIFICATION_ID, FloatingServiceNotification.create(this, currentQuickControlState()))
         registerMediaReceiver()
@@ -268,6 +302,16 @@ open class FloatingLyricsService : Service() {
     }
 
     override fun onDestroy() {
+        destroyed = true
+        renderer.onTimelineChanged = null
+        if (::windowController.isInitialized) windowController.onInteractionChanged = null
+        screenMonitor?.close()
+        screenMonitor = null
+        displayPreferenceStores.forEach { it.unregisterOnSharedPreferenceChangeListener(displayPreferenceListener) }
+        displayPreferenceStores.clear()
+        syncHandler.removeCallbacks(presentationRefreshRunnable)
+        lockScreenNotification.clear()
+        pendingLyricsMedia = null
         manualSearchObservation?.close()
         manualSearchObservation = null
         if (feedbackDelegate.isInitialized()) feedback.dismiss()
@@ -293,7 +337,7 @@ open class FloatingLyricsService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
-        internal const val CURRENT_MEDIA_REFRESH_INTERVAL_MS = 1_000L
+        internal const val CURRENT_MEDIA_REFRESH_INTERVAL_MS = 15_000L
         internal val MEDIA_RESTORE_RETRY_DELAYS_MS = longArrayOf(
             250L,
             750L,

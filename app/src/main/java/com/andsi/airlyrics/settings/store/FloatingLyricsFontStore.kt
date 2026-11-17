@@ -119,18 +119,26 @@ object FloatingLyricsFontStore {
         }
         typefaceCache.get(cacheKey)?.let { return it }
 
-        val resolved = if (fontFamily == FloatingLyricsFontFamily.CUSTOM && hasCustomFont(context)) {
-            buildCustomTypeface(context, customFile, weight)
-                ?: weightedSystemTypeface(context, Typeface.DEFAULT, weight)
-        } else {
-            val base = when (fontFamily) {
-                FloatingLyricsFontFamily.SANS_SERIF -> Typeface.SANS_SERIF
-                FloatingLyricsFontFamily.SERIF -> Typeface.SERIF
-                FloatingLyricsFontFamily.MONOSPACE -> Typeface.MONOSPACE
-                FloatingLyricsFontFamily.SYSTEM_DEFAULT,
-                FloatingLyricsFontFamily.CUSTOM -> Typeface.DEFAULT
+        val bundledAsset = bundledFontAsset(fontFamily)
+        val resolved = when {
+            bundledAsset != null -> buildBundledTypeface(context, bundledAsset, weight)
+                ?: weightedSystemTypeface(context, Typeface.SANS_SERIF, weight)
+            fontFamily == FloatingLyricsFontFamily.CUSTOM && hasCustomFont(context) -> {
+                buildCustomTypeface(context, customFile, weight)
+                    ?: weightedSystemTypeface(context, Typeface.DEFAULT, weight)
             }
-            weightedSystemTypeface(context, base, weight)
+            else -> {
+                val base = when (fontFamily) {
+                    FloatingLyricsFontFamily.SANS_SERIF -> Typeface.SANS_SERIF
+                    FloatingLyricsFontFamily.SERIF -> Typeface.SERIF
+                    FloatingLyricsFontFamily.MONOSPACE -> Typeface.MONOSPACE
+                    FloatingLyricsFontFamily.SYSTEM_DEFAULT,
+                    FloatingLyricsFontFamily.CUSTOM,
+                    FloatingLyricsFontFamily.SOFT_INTER,
+                    FloatingLyricsFontFamily.BOLD_MANROPE -> Typeface.DEFAULT
+                }
+                weightedSystemTypeface(context, base, weight)
+            }
         }
         typefaceCache.put(cacheKey, resolved)
         return resolved
@@ -154,6 +162,39 @@ object FloatingLyricsFontStore {
 
     private fun weightedSystemTypeface(context: Context, base: Typeface, weight: Int): Typeface {
         return TypefaceCompat.create(context, base, weight, false)
+    }
+
+    internal fun bundledFontAsset(fontFamily: FloatingLyricsFontFamily): String? = when (fontFamily) {
+        FloatingLyricsFontFamily.SOFT_INTER -> "fonts/inter.ttf"
+        FloatingLyricsFontFamily.BOLD_MANROPE -> "fonts/manrope.ttf"
+        else -> null
+    }
+
+    /** A native fallback chain keeps scripts absent from the Latin faces readable. */
+    private fun buildBundledTypeface(context: Context, asset: String, weight: Int): Typeface? {
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                buildBundledTypefaceWithSystemFallback(context, asset, weight)
+            } else {
+                Typeface.Builder(context.assets, asset)
+                    .setFallback("sans-serif")
+                    .setFontVariationSettings("'wght' $weight")
+                    .setWeight(weight)
+                    .build()
+            }
+        }.getOrNull()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun buildBundledTypefaceWithSystemFallback(context: Context, asset: String, weight: Int): Typeface {
+        val font = Font.Builder(context.assets, asset)
+            .setFontVariationSettings("'wght' $weight")
+            .setWeight(weight)
+            .build()
+        return Typeface.CustomFallbackBuilder(FontFamily.Builder(font).build())
+            .setSystemFallback("sans-serif")
+            .setStyle(FontStyle(weight, FontStyle.FONT_SLANT_UPRIGHT))
+            .build()
     }
 
     private fun buildCustomTypeface(context: Context, file: File, weight: Int): Typeface? {

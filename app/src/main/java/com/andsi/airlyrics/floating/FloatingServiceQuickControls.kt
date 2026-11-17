@@ -20,7 +20,8 @@ internal fun FloatingLyricsService.currentQuickControlState(
         desiredVisible = QuickFloatingStore.isDesiredVisible(this),
         locked = FloatingLyricsStyleStore.isLocked(this),
         clickThrough = FloatingLyricsStyleStore.isClickThrough(this),
-        feedback = feedback
+        feedback = feedback,
+        editorActive = isWindowControllerReady() && windowController.isEditing
     )
 }
 

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_native_display_title">Superficies nativas de letras</string>
+    <string name="ui_native_display_controls">Bloqueo, acoplamiento y batería</string>
+    <string name="ui_hold_to_edit">Mantener cinco segundos para ajustar</string>
+    <string name="ui_edge_docking">Acoplar letras en los bordes</string>
+    <string name="ui_hold_to_edit_hint">Mantén el dedo quieto con el toque activado. Si las letras dejan pasar los toques, usa el modo de ajuste de la notificación.</string>
+    <string name="ui_lock_lyrics_enable">Mostrar notificación de letras en el bloqueo</string>
+    <string name="ui_lock_lyrics_permission_hint">Requiere permiso para notificaciones y permitirlas en el bloqueo. El sistema controla su aspecto final.</string>
+    <string name="ui_lock_lyrics_permissions">Permisos y ajustes de notificaciones</string>
+    <string name="ui_lock_lyrics_privacy">Privacidad en la pantalla de bloqueo</string>
+    <string name="ui_lock_lyrics_private">Privado (predeterminado)</string>
+    <string name="ui_lock_lyrics_public">Letras públicas</string>
+    <string name="ui_lock_lyrics_hidden">Oculto en el bloqueo</string>
+    <string name="ui_lock_lyrics_privacy_hint">Privado envía una versión pública sin contenido; Android puede revelar contenido privado según tus ajustes o autenticación. Público permite mostrar la canción y letra. Oculto pide a Android ocultar esta notificación en el bloqueo.</string>
+    <string name="ui_lock_lyrics_metadata">Incluir canción y artista</string>
+    <string name="ui_lock_lyrics_compact">Notificación compacta de una línea</string>
+    <string name="ui_aod_capability">Always-On Display: letras en vivo sin verificar</string>
+    <string name="ui_aod_unverified_hint">El texto de letras en Samsung AOD no se ha verificado en Galaxy A25 / One UI 8.5. No se activa un modo AOD en vivo. Android puede mostrar un indicador de notificación; tu app de música y el sistema controlan la información musical. No se enciende la pantalla ni se anima AOD.</string>
+    <string name="ui_minimal_motion">Movimiento mínimo</string>
+    <string name="ui_minimal_motion_hint">Usa cambios de línea estáticos en lugar de karaoke y transiciones. El ahorro de batería y desactivar animaciones del sistema también reducen el movimiento.</string>
+    <string name="ui_lock_lyrics_title">Letras de AirLyrics</string>
+    <string name="ui_lock_lyrics_redacted">Las letras son privadas</string>
+    <string name="ui_lock_lyrics_channel">Letras en la pantalla de bloqueo</string>
+    <string name="ui_lock_lyrics_channel_hint">Actualizaciones silenciosas de la línea actual mientras el bloqueo está activo</string>
+    <string name="ui_overlay_done">Listo</string>
+    <string name="ui_overlay_resize">Cambiar tamaño de letras</string>
+    <string name="ui_overlay_expand">Expandir letras</string>
+    <string name="ui_overlay_dock_left">Acoplar a la izquierda</string>
+    <string name="ui_overlay_dock_right">Acoplar a la derecha</string>
+    <string name="ui_overlay_font_smaller">Texto más pequeño</string>
+    <string name="ui_overlay_font_larger">Texto más grande</string>
+    <string name="ui_overlay_wider">Letras más anchas</string>
+    <string name="ui_overlay_narrower">Letras más estrechas</string>
+    <string name="ui_overlay_taller">Letras más altas</string>
+    <string name="ui_overlay_shorter">Letras más bajas</string>
+</resources>

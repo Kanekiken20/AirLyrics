@@ -19,20 +19,25 @@ import com.andsi.airlyrics.settings.store.LyricsOffsetStore
 import com.andsi.airlyrics.settings.store.LyricsSettingsStore
 
 internal fun FloatingLyricsService.shouldSyncLyrics(): Boolean {
-    return isWindowControllerReady() && windowController.isVisible
+    return isWindowControllerReady() &&
+        (windowController.isContentVisible || shouldPresentLockScreenLyrics())
 }
 
 internal fun FloatingLyricsService.startLyricsSync() {
     syncHandler.removeCallbacks(syncRunnable)
     if (!shouldSyncLyrics()) return
 
-    renderer.refresh()
+    if (windowController.isContentVisible) renderer.refresh()
+    publishLockScreenLine()
     scheduleNextLyricsSync()
 }
 
 internal fun FloatingLyricsService.scheduleNextLyricsSync() {
     syncHandler.removeCallbacks(syncRunnable)
-    if (shouldSyncLyrics()) syncHandler.postDelayed(syncRunnable, lyricsSyncIntervalMs())
+    if (!shouldSyncLyrics()) return
+    renderer.nextPresentationDelayMs(
+        animateWords = windowController.isContentVisible && presentationAnimationAllowed
+    )?.let { syncHandler.postDelayed(syncRunnable, it) }
 }
 
 internal fun FloatingLyricsService.stopLyricsSync() {
@@ -46,6 +51,7 @@ internal fun FloatingLyricsService.lyricsSyncIntervalMs(): Long {
 internal fun FloatingLyricsService.applyLyricsOffset(offsetMs: Long) {
     if (renderer.setLyricsOffset(offsetMs)) {
         renderer.refresh()
+        publishLockScreenLine()
         scheduleNextLyricsSync()
     }
 }
@@ -88,6 +94,10 @@ internal fun FloatingLyricsService.clearLyricsState(message: () -> String) {
     automaticOnlineLookupSuppressedSong = null
     activeLyricsLookupRequestKey = null
     lyricsLookupRunner.cancelActive()
+    sourceGeneration++
+    sourceLost = false
+    pendingLyricsMedia = null
+    lockScreenNotification.clear()
     currentMedia = CurrentMediaInfo.Empty
     renderer.setLyricsOffset(0L)
     renderer.clear()
@@ -99,6 +109,15 @@ internal fun FloatingLyricsService.loadLyricsForSong(
     media: CurrentMediaInfo,
     lookupRequestKey: LyricsLookupRequestKey,
 ) {
+    if (!isInteractiveLyricsScreen() || !com.andsi.airlyrics.settings.store.QuickFloatingStore.isDesiredVisible(this)) {
+        pendingLyricsMedia = media
+        lyricsLookupRunner.cancelActive()
+        activeLyricsLookupRequestKey = null
+        renderer.show { getString(R.string.ui_loading) }
+        markLyricsLoading(media.playbackLyricsKey())
+        return
+    }
+    pendingLyricsMedia = null
     val suppressAutomaticOnlineLookup = isAutomaticOnlineLookupSuppressed(media)
     val lookupSettings = LyricsSettingsStore.getSettings(this).let { settings ->
         if (suppressAutomaticOnlineLookup) {
@@ -154,6 +173,8 @@ internal fun FloatingLyricsService.applyLyricsResult(
     renderer.setLyricsAccess(lyricsResult?.access)
 
     if (plainLrc != null) {
+        renderer.updatePlayback(currentMedia.positionMs, currentMedia.isPlaying,
+            currentMedia.playbackSpeed, currentMedia.sampledAtElapsedRealtimeMs)
         renderer.setLyricsOffset(LyricsOffsetStore.getOffsetMs(this, media.toSongIdentity()))
         val availability = renderer.parseAndShow(
             plainLrc = plainLrc,
@@ -238,6 +259,7 @@ internal fun FloatingLyricsService.importPlainLyrics(uri: Uri, overwrite: Boolea
     )
 
     if (localPlainLrc != null) {
+        renderer.updatePlayback(media.positionMs, media.isPlaying, media.playbackSpeed, media.sampledAtElapsedRealtimeMs)
         renderer.setLyricsAccess(null)
         automaticOnlineLookupSuppressedSong = null
         lastPlaybackLyricsKey = media.playbackLyricsKey()

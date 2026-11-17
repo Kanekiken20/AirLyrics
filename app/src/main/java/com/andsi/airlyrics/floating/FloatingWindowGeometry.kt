@@ -29,6 +29,10 @@ internal data class FloatingWindowGeometry(
     }
 
     companion object {
+        fun dimension(available: Int, fraction: Float, minimum: Int): Int =
+            (available * (fraction.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 1f))
+                .roundToInt().coerceIn(minimum.coerceIn(1, available.coerceAtLeast(1)), available.coerceAtLeast(1))
+
         fun width(available: Int, percent: Int): Int =
             (available * percent.coerceIn(45, 100) / 100f).roundToInt().coerceAtLeast(1)
     }

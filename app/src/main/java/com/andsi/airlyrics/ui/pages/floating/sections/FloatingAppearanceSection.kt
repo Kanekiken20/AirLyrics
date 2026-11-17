@@ -189,7 +189,12 @@ internal fun FloatingPageScope.addAppearanceSection(list: LinearLayout) = with(h
                                     title = localizedFontFamilyTitle(fontFamily),
                                     selected = fontFamily == style().fontFamily,
                                     action = {
-                                        applyFloatingStyle(style().copy(fontFamily = fontFamily))
+                                        val weight = if (fontFamily == style().fontFamily) style().fontWeight else when (fontFamily) {
+                                            FloatingLyricsFontFamily.SOFT_INTER -> 600
+                                            FloatingLyricsFontFamily.BOLD_MANROPE -> 800
+                                            else -> style().fontWeight
+                                        }
+                                        applyFloatingStyle(style().copy(fontFamily = fontFamily, fontWeight = weight))
                                         refreshFloatingPreview()
                                     }
                                 )
@@ -208,6 +213,26 @@ internal fun FloatingPageScope.addAppearanceSection(list: LinearLayout) = with(h
                             selectFloatingFontFile()
                         })
                         addView(normalText(host, getString(R.string.ui_font_formats_hint)))
+                        addView(normalText(host, getString(R.string.ui_font_curated_hint)))
+                        listOf(
+                            FloatingLyricsFontFamily.SOFT_INTER to 600,
+                            FloatingLyricsFontFamily.BOLD_MANROPE to 800
+                        ).forEach { (family, weight) ->
+                            addView(normalText(host, localizedFontFamilyTitle(family)))
+                            addView(normalText(host, getString(R.string.ui_font_preview_sample)).apply {
+                                applyFloatingPreviewStyle(style().copy(
+                                    fontFamily = family,
+                                    fontWeight = weight,
+                                    textColor = currentTextColor,
+                                    backgroundEnabled = false,
+                                    shadowRadius = 0f
+                                ))
+                                textSize = 18f
+                                includeFontPadding = true
+                                textDirection = android.view.View.TEXT_DIRECTION_FIRST_STRONG
+                                setLineSpacing(dp(3).toFloat(), 1f)
+                            })
+                        }
                     }
                 }
             ),

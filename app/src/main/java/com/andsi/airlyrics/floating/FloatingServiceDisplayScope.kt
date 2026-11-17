@@ -114,6 +114,7 @@ internal fun FloatingLyricsService.hideLyricsForDisplayScope(
         (!isWindowControllerReady() || !windowController.isVisible)
     autoHiddenForDisplayScope = true
     if (alreadyHidden) {
+        scheduleNextLyricsSync()
         if (refreshEvenIfAlreadyHidden) refreshQuickControls()
         return
     }
@@ -128,7 +129,8 @@ internal fun FloatingLyricsService.hideLyricsForDisplayScope(
         }
     }
 
-    stopLyricsSync()
+    renderer.setRenderingState(false, false)
+    scheduleNextLyricsSync()
     scheduleSelectedCurrentMediaInfoRefresh()
     refreshQuickControls()
 }

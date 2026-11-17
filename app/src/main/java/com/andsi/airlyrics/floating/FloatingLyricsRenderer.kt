@@ -45,12 +45,75 @@ class FloatingLyricsRenderer(
     private val wordByWordLyricsEnabledProvider: () -> Boolean = { false },
     private val wordByWordHighlightColorProvider: () -> Int = { Color.rgb(120, 220, 255) },
     private val noTranslationTextProvider: () -> String = { "No translation for this lyric" },
-    private val uptimeMillisProvider: () -> Long = { SystemClock.uptimeMillis() },
+    private val uptimeMillisProvider: () -> Long = { SystemClock.elapsedRealtime() },
     private val wordByWordAnimationModeProvider: () -> WordByWordAnimationMode = { WordByWordAnimationMode.CLASSIC },
     private val durationMsProvider: () -> Long = { 0L },
     private val glowStyleProvider: () -> LyricsGlowStyle = { LyricsGlowStyle() }
 ) {
+    internal var onTimelineChanged: (() -> Unit)? = null
+    private var interactiveRendering = true
+    private var motionAllowed = true
+    private var playbackSpeed = 1f
+    private var playbackAnchored = false
+    private var hasWordTimings = false
+    private var plainBoundaries = LongArray(0)
+    private var allBoundaries = LongArray(0)
+    private var animationBoundaries = LongArray(0)
     private var access: LyricsAccess? = null
+
+    /** Disabling rendering retains parsed data and cancels all View animation callbacks. */
+    internal fun setRenderingState(visible: Boolean, animate: Boolean) {
+        if (interactiveRendering == visible && motionAllowed == animate) return
+        interactiveRendering = visible
+        motionAllowed = animate
+        resetTextAnimationState()
+        (textViewProvider() as? FloatingLyricsTextView)?.updateSpicyPlayback(null, false)
+        if (visible) refresh()
+    }
+
+    internal fun displaySnapshot(): LyricsLineSnapshot {
+        if (expireIfNeeded()) return LyricsLineSnapshot(null, null, getEstimatedPositionMs(), currentIsPlaying)
+        val position = getEstimatedPositionMs()
+        val index = LrcParser.findCurrentIndex(currentPlainLines, position)
+        val line = index?.let { currentPlainLines.getOrNull(it) }
+        val text = if (line != null && !line.isMetadata) {
+            PlainLyricsDisplayFormatter.format(
+                currentPlainLines, index, contentModeProvider(), scriptPreferenceProvider(),
+                LyricsLineDisplayMode.CURRENT_ONLY, noTranslationTextProvider()
+            ).toString()
+        } else if (currentPlainLines.isEmpty() && wordByWordLyricsEnabledProvider()) {
+            findCurrentWordByWordIndex(position)?.let { currentWordByWordLines[it] }
+                ?.let { word -> LyricsDisplayPolicy.render(contentModeProvider(),
+                    wordByWordOriginalText(word), "", scriptPreferenceProvider()).let { rendered ->
+                    listOfNotNull(rendered.primary, rendered.secondary).joinToString("\n")
+                } }
+        } else null
+        val creditedLine = text?.takeIf { it.isNotBlank() }?.let { body ->
+            access?.attribution?.let { "$body\n${it.displayText()}" } ?: body
+        }
+        return LyricsLineSnapshot(creditedLine, index, position, currentIsPlaying)
+    }
+
+    /** A single predicted boundary; null means idle until a playback/content event. */
+    internal fun nextPresentationDelayMs(animateWords: Boolean): Long? {
+        if (!currentIsPlaying || !playbackAnchored) return null
+        val position = getEstimatedPositionMs()
+        val boundaries = when {
+            !wordByWordLyricsEnabledProvider() -> plainBoundaries
+            animateWords -> animationBoundaries
+            else -> allBoundaries
+        }
+        val match = boundaries.binarySearch(position)
+        val nextIndex = if (match >= 0) match + 1 else -match - 1
+        val next = boundaries.getOrNull(nextIndex)
+        val boundaryDelay = next?.let { kotlin.math.ceil((it - position) / playbackSpeed.toDouble()).toLong().coerceAtLeast(1) }
+        // Spicy has a View frame clock; classic highlighting requires short visible-only ticks.
+        if (animateWords && isWordByWordActive() &&
+            wordByWordAnimationModeProvider() == WordByWordAnimationMode.CLASSIC && next != null) {
+            return minOf(boundaryDelay ?: 40L, 40L)
+        }
+        return boundaryDelay
+    }
 
     private val expiryHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val expiryCheck = Runnable { expireIfNeeded() }
@@ -91,17 +154,20 @@ class FloatingLyricsRenderer(
     private var currentMessage: (() -> String)? = null
     private var lastRenderedText: String? = null
 
-    fun updatePlayback(positionMs: Long, isPlaying: Boolean) {
+    fun updatePlayback(positionMs: Long, isPlaying: Boolean, speed: Float = 1f, sampledAtElapsedRealtimeMs: Long = 0L) {
         val nowUptimeMs = uptimeMillisProvider()
+        val validSpeed = speed.takeIf { it.isFinite() && it > 0f } ?: 1f
         val incomingPositionMs = positionMs.coerceAtLeast(0L)
         val estimatedBeforeUpdateMs = getEstimatedPlaybackPositionMs(nowUptimeMs)
-        currentPositionMs = if (isStalePlayingBacktrack(incomingPositionMs, isPlaying, estimatedBeforeUpdateMs)) {
+        currentPositionMs = if (sampledAtElapsedRealtimeMs <= 0L && isStalePlayingBacktrack(incomingPositionMs, isPlaying, estimatedBeforeUpdateMs)) {
             estimatedBeforeUpdateMs
         } else {
             incomingPositionMs
         }
         currentIsPlaying = isPlaying
-        lastPositionUpdateUptimeMs = nowUptimeMs
+        playbackSpeed = validSpeed
+        playbackAnchored = true
+        lastPositionUpdateUptimeMs = if (sampledAtElapsedRealtimeMs > 0L) sampledAtElapsedRealtimeMs.coerceAtMost(nowUptimeMs) else nowUptimeMs
         updateSpicyPlayback()
     }
 
@@ -115,16 +181,20 @@ class FloatingLyricsRenderer(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<SpicyCacheKey, CharSequence>?) = size > 8
     }
     private val spicyClock: () -> Long = { getEstimatedPositionMs() }
-    private fun usesSpicy() = isWordByWordActive() && wordByWordAnimationModeProvider() == WordByWordAnimationMode.SPICY && textViewProvider() is FloatingLyricsTextView
-    private fun usesSpicyLines() = !isWordByWordActive() &&
+    private fun usesSpicy() = motionAllowed && isWordByWordActive() && wordByWordAnimationModeProvider() == WordByWordAnimationMode.SPICY && textViewProvider() is FloatingLyricsTextView
+    private fun usesSpicyLines() = motionAllowed && !isWordByWordActive() &&
         switchAnimationModeProvider() == LyricsSwitchAnimationMode.SPICY &&
         textViewProvider() is FloatingLyricsTextView
 
-    private fun usesLineEffects() = !isWordByWordActive() && textViewProvider() is FloatingLyricsTextView &&
+    private fun usesLineEffects() = motionAllowed && !isWordByWordActive() && textViewProvider() is FloatingLyricsTextView &&
         (switchAnimationModeProvider() == LyricsSwitchAnimationMode.SPICY || glowStyleProvider().enabled)
 
     private fun updateSpicyPlayback() {
         val view = textViewProvider() as? FloatingLyricsTextView ?: return
+        if (!interactiveRendering || !motionAllowed) {
+            view.updateSpicyPlayback(null, false)
+            return
+        }
         view.updateLyricsGlow(glowStyleProvider())
         val text = view.text as? Spanned
         val active = text != null && (
@@ -140,7 +210,7 @@ class FloatingLyricsRenderer(
         val position = getEstimatedPositionMs()
         val index = LrcParser.findCurrentIndex(currentPlainLines, position) ?: -1
         val next = currentPlainLines.getOrNull(index + 1)?.timeMs ?: return maxDelayMs
-        return (next - position).coerceIn(1L, maxDelayMs)
+        return kotlin.math.ceil((next - position) / playbackSpeed.toDouble()).toLong().coerceIn(1L, maxDelayMs)
     }
 
     fun clear() {
@@ -149,6 +219,10 @@ class FloatingLyricsRenderer(
         setLyricsAccess(null)
         currentPlainLines = emptyList()
         currentWordByWordLines = emptyList()
+        hasWordTimings = false
+        plainBoundaries = LongArray(0)
+        allBoundaries = LongArray(0)
+        animationBoundaries = LongArray(0)
         backgroundLines = emptyList()
         currentPositionMs = 0L
         lastPositionUpdateUptimeMs = 0L
@@ -156,7 +230,9 @@ class FloatingLyricsRenderer(
         lyricsOffsetMs = 0L
         currentMessage = null
         lastRenderedText = null
+        playbackAnchored = false
         resetTextAnimationState()
+        onTimelineChanged?.invoke()
     }
 
     fun show(text: String) = show { text }
@@ -165,9 +241,14 @@ class FloatingLyricsRenderer(
         setLyricsAccess(null)
         currentPlainLines = emptyList()
         currentWordByWordLines = emptyList()
+        hasWordTimings = false
+        plainBoundaries = LongArray(0)
+        allBoundaries = LongArray(0)
+        animationBoundaries = LongArray(0)
         backgroundLines = emptyList()
         currentMessage = text
         setTextImmediately(text())
+        onTimelineChanged?.invoke()
     }
 
     /**
@@ -197,6 +278,17 @@ class FloatingLyricsRenderer(
         currentPlainLines = LrcParser.parseWithTranslation(plainLrc, translatedLrc)
         currentWordByWordLines = wordByWordLines.filterNot { it.isBackground }
         backgroundLines = wordByWordLines.filter { it.isBackground }
+        hasWordTimings = currentWordByWordLines.any { line ->
+            line.segments.any { it.text.isNotBlank() && it.endMs > it.startMs }
+        }
+        plainBoundaries = currentPlainLines.map { it.timeMs }.distinct().sorted().toLongArray()
+        allBoundaries = (plainBoundaries.asList() + wordByWordLines.flatMap { listOf(it.startMs, it.endMs) })
+            .distinct().sorted().toLongArray()
+        // A frame callback can sleep during a gap between words. Only the visible motion
+        // surface wakes at segment starts; lock-screen notifications keep sentence timing.
+        animationBoundaries = (allBoundaries.asList() + wordByWordLines.flatMap { line ->
+            (line.segments + line.translatedSegments).map { it.startMs }
+        }).distinct().sorted().toLongArray()
         currentMessage = emptyText
         val availability = if (hasRenderableLyrics()) {
             ParsedLyricsAvailability.AVAILABLE
@@ -213,11 +305,12 @@ class FloatingLyricsRenderer(
         }
 
         setTextImmediately(text)
+        onTimelineChanged?.invoke()
         return availability
     }
 
     fun tick() {
-        if (expireIfNeeded()) return
+        if (expireIfNeeded() || !interactiveRendering) return
         if (currentPlainLines.isEmpty() && currentWordByWordLines.isEmpty()) return
 
         val text = renderAtCurrentPosition()
@@ -225,9 +318,7 @@ class FloatingLyricsRenderer(
     }
 
     fun isWordByWordActive(): Boolean {
-        return wordByWordLyricsEnabledProvider() && currentWordByWordLines.any { line ->
-            line.segments.any { it.text.isNotBlank() && it.endMs > it.startMs }
-        }
+        return wordByWordLyricsEnabledProvider() && hasWordTimings
     }
 
     fun refresh() {
@@ -543,7 +634,7 @@ class FloatingLyricsRenderer(
                 )
             }
         }
-        if (glowStyleProvider().enabled && textViewProvider() is FloatingLyricsTextView) {
+        if (motionAllowed && glowStyleProvider().enabled && textViewProvider() is FloatingLyricsTextView) {
             for (timing in spicyTimings(wordByWordLine, text, segments, allowEmphasis = false)) {
                 span.setSpan(SpicyLyricsSpan(timing, wordByWordHighlightColorProvider(), haloOnly = true),
                     timing.start, timing.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -658,6 +749,7 @@ class FloatingLyricsRenderer(
     }
 
     private fun setTextImmediately(text: CharSequence) {
+        if (!interactiveRendering) return
         val view = textViewProvider() ?: return
         resetTextAnimationState(view)
         view.text = credited(text)
@@ -666,6 +758,8 @@ class FloatingLyricsRenderer(
     }
 
     private fun setTextWithOptionalAnimation(text: CharSequence) {
+        if (!interactiveRendering) return
+        if (!motionAllowed || !currentIsPlaying) { setTextImmediately(text); return }
         val textKey = text.toString()
         val isWordByWordTick = isWordByWordActive()
         if (usesSpicyLines()) {
@@ -778,8 +872,8 @@ class FloatingLyricsRenderer(
     }
 
     private fun cancelTextAnimation(view: TextView) {
-        view.animate().cancel()
-        (view as? LyricsTextAnimationTarget)?.cancelLyricsTextAnimation()
+        val target = view as? LyricsTextAnimationTarget
+        if (target != null) target.cancelLyricsTextAnimation() else view.animate().cancel()
     }
 
     private fun setTextAnimationState(
@@ -792,10 +886,6 @@ class FloatingLyricsRenderer(
         val textTarget = view as? LyricsTextAnimationTarget
         if (textTarget != null) {
             // The TextView is also the WindowManager root. Keep its background and hit area fixed.
-            view.alpha = AirUiTokens.Motion.RestAlpha
-            view.translationY = 0f
-            view.scaleX = AirUiTokens.Motion.RestScale
-            view.scaleY = AirUiTokens.Motion.RestScale
             textTarget.setLyricsTextAnimationState(alpha, translationY, scaleX, scaleY)
         } else {
             view.alpha = alpha
@@ -829,12 +919,12 @@ class FloatingLyricsRenderer(
     }
 
     private fun getEstimatedPlaybackPositionMs(nowUptimeMs: Long = uptimeMillisProvider()): Long {
-        if (!currentIsPlaying || lastPositionUpdateUptimeMs == 0L) {
+        if (!currentIsPlaying || !playbackAnchored) {
             return currentPositionMs.coerceAtLeast(0L)
         }
 
         val elapsedMs = nowUptimeMs - lastPositionUpdateUptimeMs
-        return (currentPositionMs + elapsedMs.coerceAtLeast(0L)).coerceAtLeast(0L)
+        return (currentPositionMs + (elapsedMs.coerceAtLeast(0L) * playbackSpeed.toDouble()).toLong()).coerceAtLeast(0L)
     }
 
     private fun isStalePlayingBacktrack(
@@ -842,7 +932,7 @@ class FloatingLyricsRenderer(
         incomingIsPlaying: Boolean,
         estimatedBeforeUpdateMs: Long
     ): Boolean {
-        if (!currentIsPlaying || !incomingIsPlaying || lastPositionUpdateUptimeMs == 0L) {
+        if (!currentIsPlaying || !incomingIsPlaying || !playbackAnchored) {
             return false
         }
 

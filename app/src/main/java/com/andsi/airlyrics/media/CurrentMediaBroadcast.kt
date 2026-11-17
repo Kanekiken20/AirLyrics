@@ -24,6 +24,8 @@ object CurrentMediaBroadcast {
     private const val EXTRA_IS_PLAYING = "isPlaying"
     private const val EXTRA_SNAPSHOT_SEQUENCE = "mediaSnapshotSequence"
     private const val EXTRA_SOURCE_PACKAGE = "sourcePackage"
+    private const val EXTRA_PLAYBACK_SPEED = "playbackSpeed"
+    private const val EXTRA_SAMPLED_AT_ELAPSED_REALTIME_MS = "sampledAtElapsedRealtimeMs"
 
     fun mediaStatusFilter(): IntentFilter {
         return IntentFilter().apply {
@@ -49,6 +51,8 @@ object CurrentMediaBroadcast {
             putExtra(EXTRA_IS_PLAYING, media.isPlaying)
             putExtra(EXTRA_SNAPSHOT_SEQUENCE, media.snapshotSequence)
             putExtra(EXTRA_SOURCE_PACKAGE, media.sourcePackage)
+            putExtra(EXTRA_PLAYBACK_SPEED, media.playbackSpeed)
+            putExtra(EXTRA_SAMPLED_AT_ELAPSED_REALTIME_MS, media.sampledAtElapsedRealtimeMs)
         }
     }
 
@@ -84,7 +88,11 @@ object CurrentMediaBroadcast {
             snapshotSequence = intent.getLongExtra(
                 EXTRA_SNAPSHOT_SEQUENCE,
                 CurrentMediaInfo.UNSPECIFIED_SNAPSHOT_SEQUENCE
-            )
+            ),
+            playbackSpeed = intent.getFloatExtra(EXTRA_PLAYBACK_SPEED, 1f)
+                .takeIf { it.isFinite() && it > 0f } ?: 1f,
+            sampledAtElapsedRealtimeMs = intent.getLongExtra(EXTRA_SAMPLED_AT_ELAPSED_REALTIME_MS, 0L)
+                .coerceAtLeast(0L)
         )
     }
 

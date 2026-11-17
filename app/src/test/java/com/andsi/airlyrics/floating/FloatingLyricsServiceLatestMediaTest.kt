@@ -226,6 +226,7 @@ class FloatingLyricsServiceLatestMediaTest {
         val service = controller.get()
 
         assertTrue(service.showLyrics())
+        ShadowLooper.idleMainLooper()
         ShadowSystemClock.advanceBy(Duration.ofSeconds(10))
         val playingMedia = media(OLD_TITLE, sequence = 1L, isPlaying = true)
         service.currentMedia = playingMedia
@@ -238,6 +239,10 @@ class FloatingLyricsServiceLatestMediaTest {
 
         assertTrue(positionBeforePolling > playingMedia.positionMs)
         assertNull(service.readSelectedCurrentMediaInfo())
+        // Directly seeded fixture state bypasses applyCurrentMediaInfo's recovery scheduling.
+        assertTrue("Playing, visible fixture must allow a recovery poll", service.shouldPollSelectedMedia())
+        service.scheduleSelectedCurrentMediaInfoRefresh()
+        assertTrue(service.syncHandler.hasCallbacks(service.currentMediaRefreshRunnable))
 
         ShadowLooper.idleMainLooper(
             FloatingLyricsService.CURRENT_MEDIA_REFRESH_INTERVAL_MS,

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_native_display_title">Native lyrics surfaces</string>
+    <string name="ui_native_display_controls">Lock screen, docking &amp; battery</string>
+    <string name="ui_hold_to_edit">Hold five seconds to adjust</string>
+    <string name="ui_edge_docking">Dock lyrics at either edge</string>
+    <string name="ui_hold_to_edit_hint">Hold stationary while touch is enabled. For click-through lyrics, use Adjustment Mode in the service notification.</string>
+    <string name="ui_lock_lyrics_enable">Show lock-screen lyric notification</string>
+    <string name="ui_lock_lyrics_permission_hint">Requires notification permission and allowed lock-screen notifications. Your system controls the final appearance.</string>
+    <string name="ui_lock_lyrics_permissions">Notification permissions &amp; settings</string>
+    <string name="ui_lock_lyrics_privacy">Lock-screen privacy</string>
+    <string name="ui_lock_lyrics_private">Private (default)</string>
+    <string name="ui_lock_lyrics_public">Public lyrics</string>
+    <string name="ui_lock_lyrics_hidden">Hidden on lock screen</string>
+    <string name="ui_lock_lyrics_privacy_hint">Private sends a redacted public version; Android may reveal private content when your system settings or authentication allow it. Public opts into visible song and lyric text. Hidden asks Android to hide this notification on the lock screen.</string>
+    <string name="ui_lock_lyrics_metadata">Include song title and artist</string>
+    <string name="ui_lock_lyrics_compact">Compact one-line notification</string>
+    <string name="ui_aod_capability">Always-On Display: live lyrics unverified</string>
+    <string name="ui_aod_unverified_hint">Live lyric text on Samsung AOD has not been verified on Galaxy A25 / One UI 8.5. No live AOD mode is enabled. Android may show a notification indicator; your music app and system control music information. No display wake or AOD animation is used.</string>
+    <string name="ui_minimal_motion">Minimal motion</string>
+    <string name="ui_minimal_motion_hint">Use static line changes instead of karaoke and transitions. Battery Saver and disabled system animations also reduce motion.</string>
+    <string name="ui_lock_lyrics_title">AirLyrics lyrics</string>
+    <string name="ui_lock_lyrics_redacted">Lyrics are private</string>
+    <string name="ui_lock_lyrics_channel">Lock-screen lyrics</string>
+    <string name="ui_lock_lyrics_channel_hint">Silent current-line updates while the lock screen is interactive</string>
+    <string name="ui_overlay_done">Done</string>
+    <string name="ui_overlay_resize">Resize lyrics</string>
+    <string name="ui_overlay_expand">Expand lyrics</string>
+    <string name="ui_overlay_dock_left">Dock left</string>
+    <string name="ui_overlay_dock_right">Dock right</string>
+    <string name="ui_overlay_font_smaller">Smaller text</string>
+    <string name="ui_overlay_font_larger">Larger text</string>
+    <string name="ui_overlay_wider">Wider lyrics</string>
+    <string name="ui_overlay_narrower">Narrower lyrics</string>
+    <string name="ui_overlay_taller">Taller lyrics</string>
+    <string name="ui_overlay_shorter">Shorter lyrics</string>
+</resources>

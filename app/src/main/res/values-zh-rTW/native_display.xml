@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_native_display_title">原生歌詞顯示</string>
+    <string name="ui_native_display_controls">鎖定畫面、停靠與電池</string>
+    <string name="ui_hold_to_edit">長按五秒以調整</string>
+    <string name="ui_edge_docking">歌詞邊緣停靠</string>
+    <string name="ui_hold_to_edit_hint">允許觸控時保持長按不動。啟用觸控穿透時，請透過服務通知中的調整模式進入。</string>
+    <string name="ui_lock_lyrics_enable">顯示鎖定畫面歌詞通知</string>
+    <string name="ui_lock_lyrics_permission_hint">需要通知權限，並允許鎖定畫面通知。最終顯示樣式由系統決定。</string>
+    <string name="ui_lock_lyrics_permissions">通知權限與設定</string>
+    <string name="ui_lock_lyrics_privacy">鎖定畫面隱私</string>
+    <string name="ui_lock_lyrics_private">私密（預設）</string>
+    <string name="ui_lock_lyrics_public">公開歌詞</string>
+    <string name="ui_lock_lyrics_hidden">鎖定畫面時隱藏</string>
+    <string name="ui_lock_lyrics_privacy_hint">私密模式提供隱藏內容的公開版本；系統設定或身分驗證允許時，Android 仍可能顯示私密內容。公開模式允許顯示歌曲和歌詞。隱藏模式要求 Android 在鎖定畫面時隱藏此通知。</string>
+    <string name="ui_lock_lyrics_metadata">包含歌曲名與歌手</string>
+    <string name="ui_lock_lyrics_compact">精簡單行通知</string>
+    <string name="ui_aod_capability">永遠顯示：即時歌詞尚未驗證</string>
+    <string name="ui_aod_unverified_hint">尚未在 Galaxy A25 / One UI 8.5 上驗證三星永遠顯示即時歌詞。未啟用即時永遠顯示模式。Android 可能顯示通知圖示；音樂資訊由音樂應用程式和系統控制。不會喚醒螢幕或播放永遠顯示動畫。</string>
+    <string name="ui_minimal_motion">減少動態效果</string>
+    <string name="ui_minimal_motion_hint">使用靜態換行，停用卡拉 OK 與過渡效果。省電模式和系統停用動畫設定也會減少動態效果。</string>
+    <string name="ui_lock_lyrics_title">AirLyrics 歌詞</string>
+    <string name="ui_lock_lyrics_redacted">歌詞內容已隱藏</string>
+    <string name="ui_lock_lyrics_channel">鎖定畫面歌詞</string>
+    <string name="ui_lock_lyrics_channel_hint">鎖定畫面亮屏期間靜默更新目前歌詞</string>
+    <string name="ui_overlay_done">完成</string>
+    <string name="ui_overlay_resize">調整歌詞尺寸</string>
+    <string name="ui_overlay_expand">展開歌詞</string>
+    <string name="ui_overlay_dock_left">停靠左側</string>
+    <string name="ui_overlay_dock_right">停靠右側</string>
+    <string name="ui_overlay_font_smaller">縮小文字</string>
+    <string name="ui_overlay_font_larger">放大文字</string>
+    <string name="ui_overlay_wider">加寬歌詞視窗</string>
+    <string name="ui_overlay_narrower">縮窄歌詞視窗</string>
+    <string name="ui_overlay_taller">增高歌詞視窗</string>
+    <string name="ui_overlay_shorter">縮短歌詞視窗</string>
+</resources>
