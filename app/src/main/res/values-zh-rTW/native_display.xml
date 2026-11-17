@@ -34,4 +34,10 @@
     <string name="ui_overlay_narrower">縮窄歌詞視窗</string>
     <string name="ui_overlay_taller">增高歌詞視窗</string>
     <string name="ui_overlay_shorter">縮短歌詞視窗</string>
+    <string name="ui_panel_title">AirLyrics 歌詞面板</string>
+    <string name="ui_panel_enable">啟用固定歌詞小工具</string>
+    <string name="ui_panel_hint">兩行歌詞、歌曲配色，無操作控制項。請透過系統小工具選擇器加入 AirLyrics 歌詞面板。使用現有歌詞服務；選擇公開歌詞後才會顯示文字。尚未驗證三星鎖定畫面位置和息屏即時歌詞。未啟用即時息屏模式。</string>
+    <string name="ui_panel_idle">等待歌詞</string>
+    <string name="ui_panel_ambient">息屏即時歌詞無法使用</string>
+    <string name="ui_panel_description">固定兩行歌詞，使用歌曲配色。鎖定畫面和息屏位置由系統決定。</string>
 </resources>

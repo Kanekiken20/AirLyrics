@@ -270,7 +270,14 @@ internal class MainActivityUiHost(
     ): FloatingFocusBubbleHandle = floatingFocusBubbleImpl(title, subtitle, onReset, onClose, content)
     override fun lyricsDisplaySettings() = LyricsDisplaySettingsStore.get(this)
     override fun setLyricsDisplayEnabled(enabled: Boolean) = LyricsDisplaySettingsStore.setEnabled(this, enabled)
-    override fun setLyricsDisplayPrivacy(privacy: LockScreenLyricPrivacy) = LyricsDisplaySettingsStore.setPrivacy(this, privacy)
+    override fun setFixedLyricsPanelEnabled(enabled: Boolean) {
+        LyricsDisplaySettingsStore.setPanelEnabled(this, enabled)
+        com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
+    }
+    override fun setLyricsDisplayPrivacy(privacy: LockScreenLyricPrivacy) {
+        LyricsDisplaySettingsStore.setPrivacy(this, privacy)
+        com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
+    }
     override fun setLyricsDisplayShowMetadata(enabled: Boolean) = LyricsDisplaySettingsStore.setShowMetadata(this, enabled)
     override fun setLyricsDisplayCompact(compact: Boolean) = LyricsDisplaySettingsStore.setCompact(this, compact)
     override fun setLyricsDisplayMinimalMotion(minimalMotion: Boolean) = LyricsDisplaySettingsStore.setMinimalMotion(this, minimalMotion)

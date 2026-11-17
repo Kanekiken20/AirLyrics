@@ -128,7 +128,7 @@ android {
             // Install the evaluation APK alongside the user's production AirLyrics.
             // Android isolates app data and permissions by application ID, not signature alone.
             applicationIdSuffix = ".sandbox"
-            versionNameSuffix = "-test"
+            versionNameSuffix = "-test-panel"
         }
         release {
             isMinifyEnabled = true

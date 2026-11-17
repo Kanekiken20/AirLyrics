@@ -34,6 +34,11 @@ internal fun FloatingPageScope.addNativeDisplaySection(list: LinearLayout) = wit
             notifyFloatingStyleChanged()
         })
         addView(smallHint(host, getString(R.string.ui_hold_to_edit_hint)))
+        addView(settingSwitch(host, getString(R.string.ui_panel_enable), lyricsDisplaySettings().panelEnabled) { enabled ->
+            setFixedLyricsPanelEnabled(enabled)
+            notifyFloatingStyleChanged()
+        })
+        addView(smallHint(host, getString(R.string.ui_panel_hint)))
         addView(settingSwitch(host, getString(R.string.ui_lock_lyrics_enable), lyricsDisplaySettings().enabled) { enabled ->
             setLyricsDisplayEnabled(enabled)
             notifyFloatingStyleChanged()

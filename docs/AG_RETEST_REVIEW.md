@@ -1,5 +1,20 @@
 # Review of Antigravity device retest
 
+## Final lock-screen evidence follow-up
+
+Reviewed the subsequent [report at `a7ca6311e282813cd4698b11a8e0534a0902a1fd`](https://github.com/Kanekiken20/AirLyrics/blob/a7ca6311e282813cd4698b11a8e0534a0902a1fd/AG_TEST_REPORT.md), its screenshots, raw notification record and downloaded video. This follow-up supersedes the missing-evidence items below where stated; the earlier review remains as a record of the previous evidence set.
+
+- **APK identity:** The report's SHA-256 matches the delivered sandbox APK exactly: `ac5221f71247ac006cef852b03d99a07f0c78a3d42535afd385025552d3f713c`.
+- **Public lyrics on the interactive lock screen:** The [25.962-second recording](https://github.com/Kanekiken20/AirLyrics/blob/a7ca6311e282813cd4698b11a8e0534a0902a1fd/test-screenshots/airlyrics_lockscreen_public_lyrics.mp4) visibly shows a closed padlock and successive lyric changes on the dedicated card. One-second samples show distinct text around 2, 3, 8 and 14 seconds. This closes the previous gap between notification posting and actual Samsung lock-screen rendering. AG reports periodic ADB wake events; this is a locked-and-awake test, not passive AOD or a battery measurement.
+- **Persistent visibility remains limited:** The lyric card is absent from multiple sampled frames, including approximately 19–25 seconds while the other notification cards remain visible. The recording does not establish the cause or prove an always-visible card. The report's statement that the screen stayed continuously awake is also stronger than the supplied recording supports. Avoid attributing these gaps to a particular OEM behavior without correlated state/log evidence.
+- **Private configuration:** The [raw ID 2 dump](https://github.com/Kanekiken20/AirLyrics/blob/a7ca6311e282813cd4698b11a8e0534a0902a1fd/test-screenshots/notification_id2_dump.txt) confirms the sandbox package/UID, `lock_screen_lyrics_v1`, `vis=PRIVATE`, and a PUBLIC version containing only the generic private-lyrics placeholder. The private screenshot shows no readable AirLyrics lyrics, but appears to catch a transition and does not show a stable readable placeholder. It supports a narrower visual conclusion than a complete presentation audit. The separate player's media title is still visible; AirLyrics privacy does not redact other apps' notifications.
+- **Report accuracy:** The descriptions of `lock_public_change1.png`, `lock_public_change2.png` and `lock_public_change3.png` do not match the actual supplied images: the second shows a different lyric and the third shows no lyric card. The video itself supplies the stronger evidence for changing public lyrics. Artifact links are now usable GitHub-relative links.
+- **AOD and performance:** The updated report correctly labels live AOD **UNVERIFIED**. No new evidence establishes live AOD compatibility, measured CPU/battery consumption or frame smoothness. The exact One UI marketing version remains ambiguously reported as 8.0/8.5.
+
+No application code was changed or rebuilt for this evidence review. No additional device retest is needed to accept the demonstrated locked-and-awake lyric updates; persistent visibility should remain an open issue rather than receiving an unconditional PASS.
+
+## Earlier gesture retest review
+
 Reviewed external evidence from `Kanekiken20/AirLyrics`, branch `ag/device-testing`, commit `3b4498a04a1cac9fed3f1e9aedf976a24bf4b232`. Reported device: Samsung Galaxy A25 5G SM-A256E, Android 16 / SDK 36, user-reported One UI 8.5. The report header still says “8.0/8.5”; exact marketing-version evidence should be made consistent.
 
 Sources:

@@ -4,7 +4,11 @@ Investigation date: 2026-11-17. Reference checkout: `730b030848d279f63f0134be9ee
 
 ## Verdict and evidence boundary
 
+**Latest implementation finding and user correction:** The user requires a fixed, noninteractive two-line panel above the music player on the lock screen and below the notification icons on AOD, themed to the current song. The user reports that it does not appear. The delivered APK deliberately detaches its overlay when locked and contains no widget provider or live AOD renderer. That requested behavior is **unimplemented**, regardless of the successful interactive lyric-notification test. See [the subsequent source/APK/platform investigation and precise requirements](LOCKSCREEN_AOD_INVESTIGATION.md) and [the AG evidence review](AG_RETEST_REVIEW.md). The original environment audit below is retained as historical context; later reports contain the subsequent device evidence.
+
 **Live AOD lyrics on Samsung Galaxy A25 5G / One UI 8.5: UNVERIFIED.** No target phone is connected to this execution environment. Its model, firmware, AOD configuration, widget picker, notification appearance, and text refresh behavior have not been inspected. No Samsung screenshot, recording, battery measurement, or successful device test is claimed.
+
+**Latest candidate:** The new `1.2.10-test-panel` APK now includes a standard native app-widget provider. [Its implementation and verification report](FIXED_LYRIC_PANEL_TEST_BUILD.md) supersedes the earlier APK's lack of a provider. It does not establish Samsung host acceptance, requested placement or live AOD support; the original findings below describe the initial audit.
 
 | Surface | Public API feasibility | A25 / One UI 8.5 result |
 | --- | --- | --- |

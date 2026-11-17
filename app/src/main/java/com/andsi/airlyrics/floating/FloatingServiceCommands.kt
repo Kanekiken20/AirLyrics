@@ -92,7 +92,7 @@ internal fun FloatingLyricsService.hideLyrics() {
     displayScopeBlockReason = null
     stopDisplayScopeObservation()
     QuickFloatingStore.setDesiredVisible(this, false)
-    lockScreenNotification.clear()
+    clearLyricSurfaces()
     val hidden = if (isWindowControllerReady()) {
         runCatching { windowController.hide() }.getOrDefault(false)
     } else {

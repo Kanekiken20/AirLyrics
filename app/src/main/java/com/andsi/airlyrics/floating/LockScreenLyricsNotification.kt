@@ -23,7 +23,8 @@ internal data class LockScreenLyricContent(
     val title: String,
     val artist: String,
     val line: String,
-    val playing: Boolean
+    val playing: Boolean,
+    val attribution: String? = null
 )
 
 /**

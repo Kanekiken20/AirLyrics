@@ -91,7 +91,8 @@ class FloatingLyricsRenderer(
         val creditedLine = text?.takeIf { it.isNotBlank() }?.let { body ->
             access?.attribution?.let { "$body\n${it.displayText()}" } ?: body
         }
-        return LyricsLineSnapshot(creditedLine, index, position, currentIsPlaying)
+        return LyricsLineSnapshot(creditedLine, index, position, currentIsPlaying,
+            access?.attribution?.displayText()?.toString())
     }
 
     /** A single predicted boundary; null means idle until a playback/content event. */

@@ -2,6 +2,8 @@
 
 The debug variant is now an isolated evaluation install, requested so the existing AirLyrics app does not need an update or uninstall.
 
+The latest candidate is `1.2.10-test-panel`, containing a passive two-line app widget. See [fixed-panel testing, checks and limitations](FIXED_LYRIC_PANEL_TEST_BUILD.md). Exact Samsung lock-screen/AOD placement and live ambient lyrics are not established by this build.
+
 | Variant | Application ID | Launcher name | Signing |
 | --- | --- | --- | --- |
 | Debug/test | `com.andsi.airlyrics.sandbox` | AirLyrics Test | Locally generated Android debug key |

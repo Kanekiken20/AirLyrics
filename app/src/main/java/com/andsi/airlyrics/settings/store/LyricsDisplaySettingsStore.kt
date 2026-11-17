@@ -13,6 +13,7 @@ object LyricsDisplaySettingsStore {
     private const val KEY_METADATA = "show_metadata"
     private const val KEY_COMPACT = "compact"
     private const val KEY_MINIMAL_MOTION = "minimal_motion"
+    private const val KEY_PANEL_ENABLED = "fixed_panel_enabled"
 
     fun get(context: Context): LyricsDisplaySettings {
         val preferences = prefs(context, PREFS_NAME)
@@ -21,12 +22,16 @@ object LyricsDisplaySettingsStore {
             privacy = LockScreenLyricPrivacy.fromKey(preferences.getString(KEY_PRIVACY)),
             showMetadata = preferences.getBoolean(KEY_METADATA, true),
             compact = preferences.getBoolean(KEY_COMPACT, false),
-            minimalMotion = isMinimalMotion(context)
+            minimalMotion = isMinimalMotion(context),
+            panelEnabled = preferences.getBoolean(KEY_PANEL_ENABLED, false)
         )
     }
 
     fun setEnabled(context: Context, enabled: Boolean) =
         prefs(context, PREFS_NAME).setBoolean(KEY_ENABLED, enabled)
+
+    fun setPanelEnabled(context: Context, enabled: Boolean) =
+        prefs(context, PREFS_NAME).setBoolean(KEY_PANEL_ENABLED, enabled)
 
     fun setPrivacy(context: Context, privacy: LockScreenLyricPrivacy) =
         prefs(context, PREFS_NAME).setString(KEY_PRIVACY, privacy.key)

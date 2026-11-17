@@ -4,9 +4,12 @@ import android.Manifest
 import android.app.Application
 import android.app.Notification
 import android.app.NotificationManager
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.andsi.airlyrics.media.model.CurrentMediaInfo
+import com.andsi.airlyrics.R
+import com.andsi.airlyrics.core.model.LockScreenLyricPrivacy
 import com.andsi.airlyrics.lyrics.LyricsProviderResult
 import com.andsi.airlyrics.settings.store.LyricsDisplaySettingsStore
 import com.andsi.airlyrics.settings.store.QuickFloatingStore
@@ -137,5 +140,32 @@ class FloatingPresentationLifecycleTest {
         assertFalse(service.syncHandler.hasCallbacks(service.syncRunnable))
         assertFalse(service.syncHandler.hasCallbacks(service.currentMediaRefreshRunnable))
         assertFalse(service.syncHandler.hasCallbacks(service.presentationRefreshRunnable))
+    }
+
+    @Test fun fixedWidgetUpdatesWhileLockedWithLyricNotificationDisabledAndStopsInDoze() {
+        val widgets = AppWidgetManager.getInstance(app)
+        val id = shadowOf(widgets).createWidget(FixedLyricsPanelProvider::class.java, R.layout.fixed_lyrics_panel)
+        fun widgetText() = shadowOf(widgets).getViewFor(id)
+            .findViewById<android.widget.TextView>(R.id.lyric_panel_text).text.toString()
+        LyricsDisplaySettingsStore.setEnabled(service, false)
+        LyricsDisplaySettingsStore.setPanelEnabled(service, true)
+        LyricsDisplaySettingsStore.setPrivacy(service, LockScreenLyricPrivacy.PUBLIC)
+        setScreen(LyricsScreenClass.LOCKED_INTERACTIVE)
+        assertNull(notification())
+        assertEquals("First", widgetText())
+        service.applyLyricsOffset(4_000)
+        assertEquals("Second", widgetText())
+        service.applyLyricsOffset(0)
+        service.currentMedia = service.currentMedia.copy(isPlaying = true)
+        service.renderer.updatePlayback(1_000, true)
+        service.scheduleNextLyricsSync()
+        assertTrue(service.syncHandler.hasCallbacks(service.syncRunnable))
+        setScreen(LyricsScreenClass.DOZE_SUSPEND)
+        assertEquals(service.getString(R.string.ui_panel_ambient), widgetText())
+        assertFalse(service.syncHandler.hasCallbacks(service.syncRunnable))
+        assertFalse(service.syncHandler.hasCallbacks(service.currentMediaRefreshRunnable))
+        service.hideLyrics()
+        assertFalse(widgetText().contains("First"))
+        assertFalse(widgetText().contains("Second"))
     }
 }

@@ -103,6 +103,7 @@ internal interface FloatingUiHost {
     // Defaults keep preview/test hosts independent of persistence. The application host owns stores.
     fun lyricsDisplaySettings() = com.andsi.airlyrics.core.model.LyricsDisplaySettings()
     fun setLyricsDisplayEnabled(enabled: Boolean) = Unit
+    fun setFixedLyricsPanelEnabled(enabled: Boolean) = Unit
     fun setLyricsDisplayPrivacy(privacy: com.andsi.airlyrics.core.model.LockScreenLyricPrivacy) = Unit
     fun setLyricsDisplayShowMetadata(enabled: Boolean) = Unit
     fun setLyricsDisplayCompact(compact: Boolean) = Unit

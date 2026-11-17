@@ -23,7 +23,7 @@ internal fun FloatingLyricsService.shouldObserveSelectedMedia(): Boolean {
 /** Media callbacks remain primary. Only visible, playing surfaces have a sparse recovery poll. */
 internal fun FloatingLyricsService.shouldPollSelectedMedia(): Boolean =
     shouldObserveSelectedMedia() && currentMedia.isPlaying && !currentMedia.isEmpty &&
-        (windowController.isContentVisible || shouldPresentLockScreenLyrics()) && isInteractiveLyricsScreen()
+        (windowController.isContentVisible || shouldPresentLockScreenLyrics() || shouldPresentFixedLyricsPanel()) && isInteractiveLyricsScreen()
 
 internal fun FloatingLyricsService.startSelectedMediaObservation() {
     if (!shouldObserveSelectedMedia()) {
@@ -71,7 +71,7 @@ internal fun FloatingLyricsService.applyCurrentMediaInfo(media: CurrentMediaInfo
     if (previousPlaybackKey != media.playbackLyricsKey()) {
         sourceGeneration++
         renderer.show { getString(R.string.ui_loading) }
-        lockScreenNotification.clear()
+        clearLyricSurfaces()
     }
 
     syncHandler.removeCallbacks(mediaRestoreRunnable)
@@ -84,6 +84,7 @@ internal fun FloatingLyricsService.applyCurrentMediaInfo(media: CurrentMediaInfo
         sampledAtElapsedRealtimeMs = media.sampledAtElapsedRealtimeMs
     )
     renderer.setLyricsOffset(LyricsOffsetStore.getOffsetMs(this, media.toSongIdentity()))
+    if (shouldPresentFixedLyricsPanel()) panelArtwork.update(media, refreshMetadata = true)
     reevaluateAutoHide()
 
     val playbackLyricsKey = media.playbackLyricsKey()
@@ -185,7 +186,7 @@ internal fun FloatingLyricsService.handleMediaSourceLost(sourcePackage: String) 
     pendingLyricsMedia = null
     activeLyricsLookupRequestKey = null
     lyricsLookupRunner.cancelActive()
-    lockScreenNotification.clear()
+    clearLyricSurfaces()
     val pausedPosition = (renderer.getEstimatedPositionMs() - LyricsOffsetStore.getOffsetMs(this, currentMedia.toSongIdentity())).coerceAtLeast(0)
     currentMedia = currentMedia.copy(
         isPlaying = false,

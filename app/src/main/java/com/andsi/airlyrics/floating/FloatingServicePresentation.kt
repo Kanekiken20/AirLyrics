@@ -10,12 +10,25 @@ internal fun FloatingLyricsService.shouldPresentLockScreenLyrics(): Boolean =
     !sourceLost && isInteractiveLyricsScreen() &&
         QuickFloatingStore.isDesiredVisible(this) && LyricsDisplaySettingsStore.get(this).enabled
 
+internal fun FloatingLyricsService.shouldPresentFixedLyricsPanel(): Boolean =
+    !sourceLost && isInteractiveLyricsScreen() && QuickFloatingStore.isDesiredVisible(this) &&
+        LyricsDisplaySettingsStore.get(this).let {
+            it.panelEnabled && it.privacy == com.andsi.airlyrics.core.model.LockScreenLyricPrivacy.PUBLIC
+        } && fixedLyricsPanel.hasInstances
+
+internal fun FloatingLyricsService.clearLyricSurfaces() {
+    lockScreenNotification.clear()
+    fixedLyricsPanel.clear()
+    panelArtwork.clear()
+}
+
 /** The existing service is the sole scheduler and all events are serialized on its main looper. */
 internal fun FloatingLyricsService.refreshLyricsPresentation() {
     if (destroyed || !isWindowControllerReady()) return
     val previousScreen = screenClass
     screenClass = screenMonitor?.screenClass() ?: screenClass
     val settings = LyricsDisplaySettingsStore.get(this)
+    fixedLyricsPanel.refreshInstances()
     val decision = LyricsPresentationPolicy.decide(
         screenClass, QuickFloatingStore.isDesiredVisible(this), windowController.isVisible,
         windowController.isDocked, windowController.isEditing, settings.enabled,
@@ -52,16 +65,25 @@ internal fun FloatingLyricsService.refreshLyricsPresentation() {
         scheduleSelectedCurrentMediaInfoRefresh()
         scheduleNextLyricsSync()
     }
+    if (shouldPresentFixedLyricsPanel() && !currentMedia.isEmpty) panelArtwork.update(currentMedia)
     publishLockScreenLine()
 }
 
 internal fun FloatingLyricsService.publishLockScreenLine() {
-    if (!shouldPresentLockScreenLyrics() || currentMedia.isEmpty) {
+    val interactive = isInteractiveLyricsScreen()
+    val showPanel = shouldPresentFixedLyricsPanel() && !currentMedia.isEmpty
+    if (!showPanel) panelArtwork.clear()
+    val showNotification = shouldPresentLockScreenLyrics() && !currentMedia.isEmpty
+    val content = if (showPanel || showNotification) renderer.displaySnapshot().let { snapshot ->
+        snapshot.currentLine?.let {
+            LockScreenLyricContent(sourceGeneration, currentMedia.title, currentMedia.artist, it, snapshot.playing,
+                snapshot.attribution)
+        }
+    } else null
+    fixedLyricsPanel.update(content.takeIf { showPanel }, interactive, panelArtwork.colors)
+    if (!showNotification) {
         lockScreenNotification.clear()
         return
     }
-    val snapshot = renderer.displaySnapshot()
-    lockScreenNotification.update(snapshot.currentLine?.let {
-        LockScreenLyricContent(sourceGeneration, currentMedia.title, currentMedia.artist, it, snapshot.playing)
-    }, visible = true)
+    lockScreenNotification.update(content, visible = true)
 }

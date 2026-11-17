@@ -44,6 +44,10 @@ open class FloatingLyricsService : Service() {
     internal var pendingLyricsMedia: CurrentMediaInfo? = null
     internal var destroyed = false
     internal val lockScreenNotification by lazy(LazyThreadSafetyMode.NONE) { LockScreenLyricsNotification(this) }
+    internal val fixedLyricsPanel by lazy(LazyThreadSafetyMode.NONE) { FixedLyricsPanel(this) }
+    internal val panelArtwork by lazy(LazyThreadSafetyMode.NONE) {
+        LyricPanelArtwork(this, syncHandler, ::publishLockScreenLine)
+    }
     private val displayPreferenceStores = mutableListOf<SharedPreferences>()
     private val displayPreferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
         requestPresentationRefresh()
@@ -182,6 +186,12 @@ open class FloatingLyricsService : Service() {
         }
     }
 
+    private val panelChangedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            requestPresentationRefresh()
+        }
+    }
+
     private val lyricsChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             LyricsChangedBroadcast.readChange(intent)?.let(::handleLyricsChanged)
@@ -245,6 +255,8 @@ open class FloatingLyricsService : Service() {
         prepareDisplayScopeStateForServiceStart()
         startForeground(FloatingServiceNotification.NOTIFICATION_ID, FloatingServiceNotification.create(this, currentQuickControlState()))
         registerMediaReceiver()
+        ContextCompat.registerReceiver(this, panelChangedReceiver,
+            FixedLyricsPanelBroadcast.filter(), ContextCompat.RECEIVER_NOT_EXPORTED)
         registerLyricsChangedReceiver()
         ContextCompat.registerReceiver(
             this,
@@ -310,7 +322,8 @@ open class FloatingLyricsService : Service() {
         displayPreferenceStores.forEach { it.unregisterOnSharedPreferenceChangeListener(displayPreferenceListener) }
         displayPreferenceStores.clear()
         syncHandler.removeCallbacks(presentationRefreshRunnable)
-        lockScreenNotification.clear()
+        clearLyricSurfaces()
+        panelArtwork.close()
         pendingLyricsMedia = null
         manualSearchObservation?.close()
         manualSearchObservation = null
@@ -325,6 +338,7 @@ open class FloatingLyricsService : Service() {
         activeLyricsLookupRequestKey = null
         lyricsLookupRunner.shutdown()
         runCatching { unregisterReceiver(mediaReceiver) }
+        runCatching { unregisterReceiver(panelChangedReceiver) }
         runCatching { unregisterReceiver(lyricsChangedReceiver) }
         runCatching { unregisterReceiver(languageChangedReceiver) }
         if (::windowController.isInitialized) {

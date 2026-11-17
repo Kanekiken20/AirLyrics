@@ -20,7 +20,7 @@ import com.andsi.airlyrics.settings.store.LyricsSettingsStore
 
 internal fun FloatingLyricsService.shouldSyncLyrics(): Boolean {
     return isWindowControllerReady() &&
-        (windowController.isContentVisible || shouldPresentLockScreenLyrics())
+        (windowController.isContentVisible || shouldPresentLockScreenLyrics() || shouldPresentFixedLyricsPanel())
 }
 
 internal fun FloatingLyricsService.startLyricsSync() {
@@ -97,7 +97,7 @@ internal fun FloatingLyricsService.clearLyricsState(message: () -> String) {
     sourceGeneration++
     sourceLost = false
     pendingLyricsMedia = null
-    lockScreenNotification.clear()
+    clearLyricSurfaces()
     currentMedia = CurrentMediaInfo.Empty
     renderer.setLyricsOffset(0L)
     renderer.clear()

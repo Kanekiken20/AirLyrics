@@ -231,6 +231,7 @@
   "protocol_owners": [
     "floating/FloatingServiceCommand.kt",
     "floating/FloatingWindowStateBroadcast.kt",
+    "floating/FixedLyricsPanelBroadcast.kt",
     "lyrics/LyricsChangedBroadcast.kt",
     "i18n/LanguageChangedBroadcast.kt",
     "media/CurrentMediaBroadcast.kt"

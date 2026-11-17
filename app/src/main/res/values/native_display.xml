@@ -34,4 +34,10 @@
     <string name="ui_overlay_narrower">Narrower lyrics</string>
     <string name="ui_overlay_taller">Taller lyrics</string>
     <string name="ui_overlay_shorter">Shorter lyrics</string>
+    <string name="ui_panel_title">AirLyrics Panel</string>
+    <string name="ui_panel_enable">Enable fixed lyric widget</string>
+    <string name="ui_panel_hint">Two lyric lines with song colors and no controls. Add AirLyrics Panel through a system widget picker. Uses the existing lyrics service; Public lyrics must be selected to show text. Samsung lock-screen placement and live AOD are unverified. No live AOD mode is enabled.</string>
+    <string name="ui_panel_idle">Waiting for lyrics</string>
+    <string name="ui_panel_ambient">Live AOD unavailable</string>
+    <string name="ui_panel_description">Fixed two-line lyrics with song colors. Lock-screen and AOD placement depend on the system.</string>
 </resources>

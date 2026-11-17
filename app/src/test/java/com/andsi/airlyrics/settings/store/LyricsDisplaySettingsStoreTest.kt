@@ -48,4 +48,14 @@ class LyricsDisplaySettingsStoreTest {
         assertEquals(LockScreenLyricPrivacy.PRIVATE, LyricsDisplaySettingsStore.get(context).privacy)
         assertEquals(LockScreenLyricPrivacy.PRIVATE, LockScreenLyricPrivacy.fromKey(null))
     }
+
+    @Test fun panelOptInIsIndependentOfNotificationOptIn() {
+        LyricsDisplaySettingsStore.setPanelEnabled(context, true)
+        assertTrue(LyricsDisplaySettingsStore.get(context).panelEnabled)
+        assertFalse(LyricsDisplaySettingsStore.get(context).enabled)
+        LyricsDisplaySettingsStore.setEnabled(context, true)
+        LyricsDisplaySettingsStore.setPanelEnabled(context, false)
+        assertFalse(LyricsDisplaySettingsStore.get(context).panelEnabled)
+        assertTrue(LyricsDisplaySettingsStore.get(context).enabled)
+    }
 }

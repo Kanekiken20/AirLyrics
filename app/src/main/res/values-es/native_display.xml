@@ -34,4 +34,10 @@
     <string name="ui_overlay_narrower">Letras más estrechas</string>
     <string name="ui_overlay_taller">Letras más altas</string>
     <string name="ui_overlay_shorter">Letras más bajas</string>
+    <string name="ui_panel_title">Panel de AirLyrics</string>
+    <string name="ui_panel_enable">Activar widget fijo de letras</string>
+    <string name="ui_panel_hint">Dos líneas con colores de la canción y sin controles. Añade Panel de AirLyrics desde el selector de widgets del sistema. Usa el servicio de letras existente; selecciona Letras públicas para ver el texto. La ubicación en el bloqueo Samsung y las letras en vivo en AOD no se han verificado. No se activa un modo AOD en vivo.</string>
+    <string name="ui_panel_idle">Esperando letras</string>
+    <string name="ui_panel_ambient">AOD en vivo no disponible</string>
+    <string name="ui_panel_description">Dos líneas fijas con colores de la canción. La ubicación en bloqueo y AOD depende del sistema.</string>
 </resources>
