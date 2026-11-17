@@ -124,6 +124,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".sandbox"
+            versionNameSuffix = "-test"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

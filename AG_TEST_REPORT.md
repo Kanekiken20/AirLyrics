@@ -207,6 +207,11 @@ $ dumpsys package com.andsi.airlyrics.sandbox | grep -E 'userId=|versionName|las
 | `ui_samsung_probe.xml` | Raw UIAutomator hierarchy dump capturing complication widget instances | [test-screenshots/ui_samsung_probe.xml](test-screenshots/ui_samsung_probe.xml) |
 | `samsung_probe_logcat.txt` | Complete sandbox PID logcat during widget update and probe lifecycle | [test-screenshots/samsung_probe_logcat.txt](test-screenshots/samsung_probe_logcat.txt) |
 | `samsung_probe_widget_dump.txt` | Raw dumpsys appwidget output for provider and host bindings | [test-screenshots/samsung_probe_widget_dump.txt](test-screenshots/samsung_probe_widget_dump.txt) |
+| `lock_fixed_panel.png` | Lock screen showing Fixed Lyrics Panel widget in "Waiting for lyrics" state | [test-screenshots/lock_fixed_panel.png](test-screenshots/lock_fixed_panel.png) |
+| `ui_fixed_panel.xml` | Raw UIAutomator dump showing widget instances with "Waiting for lyrics" text | [test-screenshots/ui_fixed_panel.xml](test-screenshots/ui_fixed_panel.xml) |
+| `lock_with_service.png` | Lock screen capture after FloatingLyricsService start showing "Live AOD unavailable" | [test-screenshots/lock_with_service.png](test-screenshots/lock_with_service.png) |
+| `ui_with_service.xml` | Raw UIAutomator dump after service start revealing OEM guard string injection | [test-screenshots/ui_with_service.xml](test-screenshots/ui_with_service.xml) |
+| `lock_fixed_test.mp4` | 15s video showing live lock-screen lyric updates in notification channel 2 | [test-screenshots/lock_fixed_test.mp4](test-screenshots/lock_fixed_test.mp4) |
 
 ---
 
@@ -471,4 +476,49 @@ object LyricsWidgetState {
 #### 5. Screen Wake & Foreground Service Integration
 1. Call `FixedLyricsPanelProvider.updateLyrics(this, currentLyricLine, currentTrackTitle)` inside the playback service when the active lyric changes.
 2. Register a dynamic `BroadcastReceiver` in the service for `Intent.ACTION_SCREEN_ON` calling `FixedLyricsPanelProvider.pushLatest(this, force = true)`. This bypasses Samsung's deep AOD update coalescing and ensures immediate rendering the millisecond the lock screen wakes.
+
+---
+
+## 10. Live On-Device Verification: `airlyrics-test-fixed-panel.apk`
+
+### 1. APK Identification & Safety Verification
+- **File Tested:** `airlyrics-test-fixed-panel.apk` (21,566,998 bytes)
+- **APK SHA-256:**
+  ```text
+  B9FE409AFAE35E4600D9690A611DEC0585B99D8DB2FFC8C549F814B1771FD27B
+  ```
+- **Target Package (Sandbox):** `com.andsi.airlyrics.sandbox` (`versionName=1.2.10-test-panel`, `versionCode=21`, `UID 10440`)
+- **Protected Production App:** `com.andsi.airlyrics` (`UID 10292`, `versionName=1.2.10`, `lastUpdateTime=2026-11-13 13:35:25`) is **100% untouched**.
+- **Physical Test Device:** Samsung Galaxy A25 5G (`SM-A256E`), Android 16 / One UI 8.x.
+
+---
+
+### 2. On-Device Test Results Matrix
+
+| Feature Tested | Verification Status | On-Device Findings & Behavior |
+|---|---|---|
+| **Lock-Screen Notification (Channel `lock_screen_lyrics_v1`)** | ✅ **PASS (CONFIRMED)** | Notification ID 2 posted with `vis=PUBLIC`, category `status`, displaying real-time song lyrics: `You got me in limbo babe`. Updates continuously while phone remains locked and screen is awake without user intervention. Captured in 15s video: [test-screenshots/lock_fixed_test.mp4](test-screenshots/lock_fixed_test.mp4). |
+| **Fixed Complication Widget (Pre-Service Initial State)** | ✅ **PASS (RESOLVED)** | Upon clean install before `FloatingLyricsService` starts, the lock-screen complication widget renders properly with text `'Waiting for lyrics'` (`ui_panel_idle`). The previous white box / contrast blowout visual defect is eliminated. Evidence: [test-screenshots/lock_fixed_panel.png](test-screenshots/lock_fixed_panel.png) and [test-screenshots/ui_fixed_panel.xml](test-screenshots/ui_fixed_panel.xml). |
+| **Fixed Complication Widget (Service Active / Music Playing)** | ⚠️ **FAIL / BLOCKED BY OEM GUARD** | As soon as `FloatingLyricsService` is toggled ON, the widget text transitions from `'Waiting for lyrics'` to `'Live AOD unavailable'`. The widget does **not** display live song lyrics. Evidence: [test-screenshots/lock_with_service.png](test-screenshots/lock_with_service.png) and [test-screenshots/ui_with_service.xml](test-screenshots/ui_with_service.xml). |
+
+---
+
+### 3. Root-Cause Analysis of the Complication Failure
+
+Decompilation and binary resource analysis of `airlyrics-test-fixed-panel.apk` isolated the exact technical cause:
+
+1. **Active OEM Device Check Intercepting Lyrics:**
+   The APK contains an explicit guard clause in the service:
+   > *"Live lyric text on Samsung AOD has not been verified on Galaxy A25 / One UI 8.5. No live AOD mode is enabled."*
+2. **Execution Flow on Galaxy A25 5G:**
+   - Pre-service: `FixedLyricsPanelProvider` loads default layout `fixed_lyrics_panel.xml` with text `Waiting for lyrics`.
+   - Playback starts: `MediaNotificationListenerService` successfully receives active Spotify metadata (`fmyx • Karri`).
+   - Notification channel updates: `FloatingLyricsService` posts `You got me in limbo babe` to `lock_screen_lyrics_v1` (Notification ID 2).
+   - Widget update blocked: The service detects `Build.MODEL == "SM-A256E"` (or Samsung non-LTPO AOD check) and **intentionally overrides** the widget's RemoteViews with string `0x7f0f0286` (`"Live AOD unavailable"`) instead of forwarding the active lyric string!
+
+### 4. Action Required for Hydrogen / Engineering
+To make the widget display lyrics on Samsung Galaxy devices:
+- **Remove the OEM device suppression check** in `FloatingLyricsService` that forces `"Live AOD unavailable"` on Galaxy A25 / One UI 8.x.
+- Forward `currentLyricLine` (and fallback `currentTrackTitle`) unconditionally to `FixedLyricsPanelProvider` RemoteViews via `pushUpdate()`.
+
 
