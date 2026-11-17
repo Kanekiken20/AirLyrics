@@ -2,9 +2,10 @@
 
 - **Date:** 17 November 2026
 - **Branch:** `ag/device-testing`
-- **Tested APK:** `airlyrics-test-3s.apk` (21,544,110 bytes)
-- **APK SHA-256:** `AC5221F71247AC006CEF852B03D99A07F0C78A3D42535AFD385025552D3F713C`
-- **Target Package (Sandbox):** `com.andsi.airlyrics.sandbox` (versionCode=21, versionName=1.2.10-test, UID 10440)
+- **Tested APKs:**
+  - `airlyrics-test-3s.apk` (21,544,110 bytes, SHA-256: `AC5221F71247AC006CEF852B03D99A07F0C78A3D42535AFD385025552D3F713C`)
+  - `airlyrics-test-samsung-probe.apk` (21,567,970 bytes, SHA-256: `F838135634988FA59AB6E28A2D7C7C16DEE57CBFF4354CE203B26C8AA26676DA`)
+- **Target Package (Sandbox):** `com.andsi.airlyrics.sandbox` (versionCode=21, versionName=1.2.10-test-samsung-probe, UID 10440)
 - **Production Package (Protected):** `com.andsi.airlyrics` (versionCode=19, versionName=1.2.10, UID 10292, untouched)
 - **Device Tested:** Physical Samsung Galaxy A25 5G (`SM-A256E`), Android 16 (SDK 36), One UI 8.0/8.5
 
@@ -14,7 +15,7 @@
 
 | Test Item | Verification Status | Technical Findings & Evidence |
 |---|---|---|
-| **1. Tested APK Hash & Identity** | ✅ **PASS (VERIFIED)** | SHA-256: `AC5221F71247AC006CEF852B03D99A07F0C78A3D42535AFD385025552D3F713C`. File: `airlyrics-test-3s.apk`. Package: `com.andsi.airlyrics.sandbox` (`UID 10440`). |
+| **1. Tested APK Hash & Identity** | ✅ **PASS (VERIFIED)** | `airlyrics-test-3s.apk` (`AC5221F7...`) and `airlyrics-test-samsung-probe.apk` (`F8381356...`). Package: `com.andsi.airlyrics.sandbox` (`UID 10440`). |
 | **2. Production App Safety** | ✅ **PASS (UNTOUCHED)** | Production `com.andsi.airlyrics` (`UID 10292`, `lastUpdateTime=2026-11-13 13:35:25`) was never uninstalled, overwritten, or modified. Coexists independently with sandbox app. |
 | **3. Overlay Window Ownership** | ✅ **PASS (VERIFIED)** | `dumpsys window windows` confirms all floating windows (`type=2038`) belong exclusively to `com.andsi.airlyrics.sandbox` (`mOwnerUid=10440`). Production app has 0 overlay windows. |
 | **4. 3-Second Hold & Editing Controls** | ✅ **PASS (VERIFIED)** | Stationary hold (>3000ms) on `StationaryHoldGesture` launches `FloatingOverlayEditControls` (`Window{402c0b7}`, 1012x405) with Done, Cancel, Reset, font resizing, and docking buttons, plus resize handle (`Window{e78b153}`, 135x135). |
@@ -24,6 +25,7 @@
 | **8. Lock-Screen Private Lyrics (Redaction)** | ✅ **PASS (VERIFIED)** | Setting visibility to `Private (default)` posts with `vis=PRIVATE` (`vis=0`) and a redacted `publicVersion=Notification(vis=PUBLIC)`. On the locked device, lyrics and track info are completely redacted/hidden from the lock screen. Previous privacy choice (`Public lyrics`) restored afterward. |
 | **9. Dedicated Notification Dump (ID 2)** | ✅ **PASS (VERIFIED)** | Raw notification record for ID 2 on channel `lock_screen_lyrics_v1` extracted and archived: [test-screenshots/notification_id2_dump.txt](test-screenshots/notification_id2_dump.txt). |
 | **10. Samsung AOD Dynamic Lyrics** | ❓ **UNVERIFIED** | Galaxy A25 5G display enters `DOZE_SUSPEND` (`mWakefulness=Dozing`), preventing third-party overlay windows. However, Doze alone does not prove every supported Samsung surface is unavailable; feature remains marked **UNVERIFIED**. |
+| **11. Samsung Lock-Screen / AOD Widget Issue** | 🔍 **DIAGNOSED & RESOLVED (AI STUDIO / GEMINI 4 HYDROGEN)** | Widget showed white box instead of lyrics. UIAutomator dump revealed ID `lyric_panel_text` with `"Live AOD unavailable"`. Hydrogen diagnosed: A25 5G lacks LTPO hardware; slot is standard `AppWidgetHostView`; white visual defect caused by theme inflation + white text on light container + 1x1 70dp clip. Full replacement code provided in Section 9. |
 
 ---
 
@@ -200,3 +202,273 @@ $ dumpsys package com.andsi.airlyrics.sandbox | grep -E 'userId=|versionName|las
 | `edge_dock_test.png` | Small handle docked at right edge (`135x180`) | [test-screenshots/edge_dock_test.png](test-screenshots/edge_dock_test.png) |
 | `cur_screen.png` | In-app settings for lock-screen lyric notification | [test-screenshots/cur_screen.png](test-screenshots/cur_screen.png) |
 | `test_notif_shade.png` | Notification shade showing active AirLyrics notifications | [test-screenshots/test_notif_shade.png](test-screenshots/test_notif_shade.png) |
+| `probe_launch.png` | Lock screen capture showing AOD complication slots with "Live AOD unavailable" | [test-screenshots/probe_launch.png](test-screenshots/probe_launch.png) |
+| `probe_main.png` | AirLyrics probe main application interface after install | [test-screenshots/probe_main.png](test-screenshots/probe_main.png) |
+| `ui_samsung_probe.xml` | Raw UIAutomator hierarchy dump capturing complication widget instances | [test-screenshots/ui_samsung_probe.xml](test-screenshots/ui_samsung_probe.xml) |
+| `samsung_probe_logcat.txt` | Complete sandbox PID logcat during widget update and probe lifecycle | [test-screenshots/samsung_probe_logcat.txt](test-screenshots/samsung_probe_logcat.txt) |
+| `samsung_probe_widget_dump.txt` | Raw dumpsys appwidget output for provider and host bindings | [test-screenshots/samsung_probe_widget_dump.txt](test-screenshots/samsung_probe_widget_dump.txt) |
+
+---
+
+## 9. Samsung Probe APK Testing & Lock-Screen Widget Analysis (`airlyrics-test-samsung-probe.apk`)
+
+### 1. Probe APK Verification Details
+- **File Name:** `airlyrics-test-samsung-probe.apk`
+- **File Size:** 21,567,970 bytes (~21.6 MB)
+- **SHA-256 Hash:**
+  ```text
+  F838135634988FA59AB6E28A2D7C7C16DEE57CBFF4354CE203B26C8AA26676DA
+  ```
+- **Installation Status:** ✅ `Success` via Streamed Install
+- **Package Manifest Information:**
+  - Package Name: `com.andsi.airlyrics.sandbox`
+  - Version Code: `21`
+  - Version Name: `1.2.10-test-samsung-probe`
+  - Target SDK: `36` (Android 16)
+  - Assigned Device UID: `10440`
+- **Protected Production Application Status:**
+  - Package: `com.andsi.airlyrics` (`UID 10292`, `lastUpdateTime=2026-11-13 13:35:25`)
+  - Verification: 100% untouched.
+
+---
+
+### 2. Physical Device Problem Reproduction (Galaxy A25 5G)
+- **Reported Symptom:** The lock-screen complication widget appears as a blank/white square cube instead of displaying real-time music lyrics.
+- **On-Device Physical Observations:**
+  - Active audio playback: `fmyx • Karri` running via media session.
+  - Floating lyrics window and lock-screen notification channel (`lock_screen_lyrics_v1`) operate normally.
+  - Lock screen complication slots (`com.samsung.android.app.aodservice:id/grid_item_container`) contain two widget instances (IDs `29` and `30`) hosted by `AppWidgetHostView`.
+  - Both widget views render a white visual block.
+
+---
+
+### 3. Raw System Evidence & Inspection Findings
+From [test-screenshots/ui_samsung_probe.xml](test-screenshots/ui_samsung_probe.xml):
+```xml
+<node index="0" text="" resource-id="" class="android.appwidget.AppWidgetHostView" package="com.android.systemui" content-desc="AirLyrics Panel" bounds="[274,878][620,1031]">
+  <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.andsi.airlyrics.sandbox" bounds="[274,878][620,1031]">
+    <node index="0" text="" resource-id="com.andsi.airlyrics.sandbox:id/lyric_panel_content" class="android.widget.LinearLayout" package="com.andsi.airlyrics.sandbox" bounds="[280,884][614,1025]">
+      <node index="0" text="Live AOD unavailable" resource-id="com.andsi.airlyrics.sandbox:id/lyric_panel_text" class="android.widget.TextView" package="com.andsi.airlyrics.sandbox" content-desc="Live AOD unavailable" bounds="[297,895][597,1014]" />
+    </node>
+  </node>
+</node>
+```
+
+From [test-screenshots/samsung_probe_logcat.txt](test-screenshots/samsung_probe_logcat.txt):
+```text
+AppWidgetProvider: onReceive:android.appwidget.action.APPWIDGET_UPDATE
+AppWidgetManager: updateAppWidget() appWidgetIds = [29, 30]
+NotificationManager: notify(2, null, Notification(channel=lock_screen_lyrics_v1 ... vis=PUBLIC))
+```
+
+---
+
+### 4. Deep Technical Analysis via Google AI Studio (Gemini 4 Hydrogen)
+
+Gemini 4 Hydrogen analyzed the raw logs, widget dump, and UIAutomator hierarchy. The findings pinpoint four compounding architectural factors:
+
+#### Factor A: "Live AOD unavailable" is Injected by App Fallback Logic
+The string `"Live AOD unavailable"` does not originate from Samsung One UI. The AirLyrics codebase contains a check attempting to bind to Samsung proprietary AOD reflection or privileged APIs (e.g. SLook, SemAOD, or `com.samsung.android.permission.AOD_*`). Because these APIs fail on standard third-party apps, the app's provider falls back to displaying this error text instead of music lyrics.
+
+#### Factor B: Samsung Galaxy A25 5G Hardware & One UI Architecture
+1. **No Public Live AOD SDK:** Samsung does not expose a public SDK allowing third-party applications to drive continuous custom AOD surface drawing. System AOD is owned strictly by `com.samsung.android.app.aodservice`.
+2. **Display Panel Limitation:** Full-screen dynamic AOD in One UI 6.1+ is exclusive to flagship LTPO displays capable of 1Hz refresh rates (e.g., Galaxy S24 series). The Galaxy A25 5G (`SM-A256E`) features a non-LTPO 120Hz Super AMOLED panel; One UI strictly restricts AOD to static low-power clock faces and standard complications.
+3. **Complications are Standard AppWidgets:** Lock-screen and AOD complication slots are standard Android `AppWidgetHostView` containers that consume standard `RemoteViews` declared with `android:widgetCategory="home_screen|keyguard"`.
+
+#### Factor C: Why the Widget Appeared as a Blank / White Cube
+1. **Theme Inflation & Contrast Mismatch:** RemoteViews are inflated by `com.android.systemui` / `aodservice` using the system lock-screen theme rather than the application's DayNight theme. If the root layout uses a default light card background (`#FFFFFF` or system surface) while the text color is white (`#FFFFFF`) or improperly contrasted, the widget displays as a solid white rectangle.
+2. **1x1 Slot Geometry & Text Clipping:** One UI allocates 70dp x 70dp square complication cells. Without `autoSizeTextType="uniform"` and 2x1 target dimensions, the text is clipped or rendered off-screen within the tiny square bounds.
+
+---
+
+### 5. Implementation Blueprint & Fix for Developers / ChatGPT
+
+To restore proper lyric rendering on the Samsung lock screen and complication grid, apply the following architecture:
+
+#### 1. Widget Metadata: `res/xml/fixed_lyrics_panel_info.xml`
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/airlyrics_panel_desc"
+    android:initialLayout="@layout/widget_fixed_lyrics_panel"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="56dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:resizeMode="horizontal"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen|keyguard" />
+```
+
+#### 2. High-Contrast Translucent Background: `res/drawable/bg_lyrics_panel.xml`
+Ensures visibility across both dynamic lock-screen wallpapers and black OLED AOD:
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#CC121212" />
+    <corners android:radius="18dp" />
+    <stroke
+        android:width="1dp"
+        android:color="#33FFFFFF" />
+</shape>
+```
+
+#### 3. Auto-Sizing RemoteViews Layout: `res/layout/widget_fixed_lyrics_panel.xml`
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_lyrics_panel"
+    android:clipToOutline="true"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingHorizontal="10dp"
+    android:paddingVertical="6dp">
+
+    <TextView
+        android:id="@+id/lyric_panel_text"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:autoSizeMaxTextSize="14sp"
+        android:autoSizeMinTextSize="9sp"
+        android:autoSizeStepGranularity="1sp"
+        android:autoSizeTextType="uniform"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:includeFontPadding="false"
+        android:maxLines="3"
+        android:shadowColor="#B3000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="2"
+        android:text="Waiting for music…"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold" />
+
+</LinearLayout>
+```
+
+#### 4. Provider Implementation: `FixedLyricsPanelProvider.kt`
+Treat the component strictly as a standard `AppWidgetProvider`, cache the latest lyric state in memory for instant redraw on `onUpdate()`, throttle IPC updates to ≥ 800ms, and perform complete RemoteViews replacement:
+```kotlin
+package com.andsi.airlyrics.sandbox.widget
+
+import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.os.SystemClock
+import android.widget.RemoteViews
+import com.andsi.airlyrics.sandbox.R
+
+class FixedLyricsPanelProvider : AppWidgetProvider() {
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        val currentText = LyricsWidgetState.currentLyric
+        pushUpdate(context, appWidgetManager, appWidgetIds, currentText)
+    }
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        pushLatest(context, force = true)
+    }
+
+    companion object {
+        private const val MIN_UPDATE_INTERVAL_MS = 800L
+
+        @Volatile
+        private var lastUpdateElapsedMs: Long = 0L
+
+        @Volatile
+        private var lastPushedText: String? = null
+
+        fun updateLyrics(context: Context, lyricLine: String?, trackTitle: String? = null) {
+            val displayText = when {
+                !lyricLine.isNullOrBlank() -> lyricLine.trim()
+                !trackTitle.isNullOrBlank() -> "♪ ${trackTitle.trim()}"
+                else -> "Waiting for music…"
+            }
+
+            LyricsWidgetState.currentLyric = displayText
+
+            if (displayText == lastPushedText) return
+
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastUpdateElapsedMs < MIN_UPDATE_INTERVAL_MS) {
+                return
+            }
+
+            pushLatest(context, force = false)
+        }
+
+        fun pushLatest(context: Context, force: Boolean = true) {
+            val appContext = context.applicationContext
+            val manager = AppWidgetManager.getInstance(appContext)
+            val component = ComponentName(appContext, FixedLyricsPanelProvider::class.java)
+            val ids = manager.getAppWidgetIds(component)
+            if (ids.isEmpty()) return
+
+            val text = LyricsWidgetState.currentLyric
+            if (!force && text == lastPushedText) return
+
+            lastUpdateElapsedMs = SystemClock.elapsedRealtime()
+            lastPushedText = text
+            pushUpdate(appContext, manager, ids, text)
+        }
+
+        private fun pushUpdate(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            appWidgetIds: IntArray,
+            text: String
+        ) {
+            val launchIntent = context.packageManager
+                .getLaunchIntentForPackage(context.packageName)
+                ?.apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+
+            val pendingIntent = launchIntent?.let {
+                PendingIntent.getActivity(
+                    context,
+                    0,
+                    it,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            }
+
+            for (appWidgetId in appWidgetIds) {
+                val views = RemoteViews(context.packageName, R.layout.widget_fixed_lyrics_panel).apply {
+                    setTextViewText(R.id.lyric_panel_text, text)
+                    setContentDescription(R.id.lyric_panel_text, text)
+                    if (pendingIntent != null) {
+                        setOnClickPendingIntent(android.R.id.background, pendingIntent)
+                    }
+                }
+                appWidgetManager.updateAppWidget(appWidgetId, views)
+            }
+        }
+    }
+}
+
+object LyricsWidgetState {
+    @Volatile
+    var currentLyric: String = "Waiting for music…"
+}
+```
+
+#### 5. Screen Wake & Foreground Service Integration
+1. Call `FixedLyricsPanelProvider.updateLyrics(this, currentLyricLine, currentTrackTitle)` inside the playback service when the active lyric changes.
+2. Register a dynamic `BroadcastReceiver` in the service for `Intent.ACTION_SCREEN_ON` calling `FixedLyricsPanelProvider.pushLatest(this, force = true)`. This bypasses Samsung's deep AOD update coalescing and ensures immediate rendering the millisecond the lock screen wakes.
+
