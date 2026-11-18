@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.widget.RemoteViews
+import androidx.annotation.VisibleForTesting
 import com.andsi.airlyrics.R
 
 class FixedLyricsPanelProvider : AppWidgetProvider() {
@@ -70,6 +71,14 @@ class FixedLyricsPanelProvider : AppWidgetProvider() {
                 return DEFAULT_PLACEHOLDER
             }
         }
+
+        @VisibleForTesting
+        internal fun resetForTesting() {
+            synchronized(lock) {
+                cachedLyricLine = null
+                cachedTrackTitle = null
+            }
+        }
     }
 
     companion object {
@@ -89,6 +98,17 @@ class FixedLyricsPanelProvider : AppWidgetProvider() {
         @Volatile
         private var pendingRunnable: Runnable? = null
 
+        @VisibleForTesting
+        internal fun resetForTesting() {
+            synchronized(throttleLock) {
+                pendingRunnable?.let { mainHandler.removeCallbacks(it) }
+                pendingRunnable = null
+                lastUpdateElapsedMs = 0L
+                lastPushedText = null
+            }
+            LyricsWidgetState.resetForTesting()
+        }
+
         fun updateLyrics(context: Context, lyricLine: String?, trackTitle: String? = null) {
             LyricsWidgetState.update(lyricLine, trackTitle)
             val appContext = context.applicationContext
@@ -105,7 +125,7 @@ class FixedLyricsPanelProvider : AppWidgetProvider() {
                 pendingRunnable?.let { mainHandler.removeCallbacks(it) }
                 pendingRunnable = null
 
-                if (elapsed >= MIN_UPDATE_INTERVAL_MS) {
+                if (elapsed < 0L || lastUpdateElapsedMs == 0L || elapsed >= MIN_UPDATE_INTERVAL_MS) {
                     executePush(appContext, displayText)
                 } else {
                     val delayMs = MIN_UPDATE_INTERVAL_MS - elapsed
