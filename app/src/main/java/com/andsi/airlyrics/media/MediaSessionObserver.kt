@@ -136,6 +136,7 @@ internal class MediaSessionObserver(
         val bestControllers = CurrentMediaReader.selectedControllersByPackage(
             observedControllers.values.map { it.controller }
         )
+        MediaNotificationListenerService.activeMediaController = bestControllers.values.firstOrNull()
         val nextControllerTokens = mutableMapOf<String, MediaSession.Token>()
         val mediaToPublish = mutableListOf<CurrentMediaInfo>()
         bestControllers.forEach { (packageName, controller) ->

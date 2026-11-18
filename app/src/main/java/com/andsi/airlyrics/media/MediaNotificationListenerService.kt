@@ -127,5 +127,8 @@ class MediaNotificationListenerService : NotificationListenerService() {
     companion object {
         private const val TAG = "MediaNotificationListenerService"
         private const val MEDIA_SESSION_RESCAN_DELAY_MS = 200L
+
+        @Volatile
+        var activeMediaController: android.media.session.MediaController? = null
     }
 }

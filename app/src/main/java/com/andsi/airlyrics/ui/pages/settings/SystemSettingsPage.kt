@@ -22,7 +22,9 @@ import com.andsi.airlyrics.design.tokens.AirUiTokens
 import com.andsi.airlyrics.settings.store.AppSettingsStore
 import com.andsi.airlyrics.widget.FixedLyricsPanelProvider
 import android.appwidget.AppWidgetManager
+import com.andsi.airlyrics.lockscreen.LockScreenOverlayAccessibilityService
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
@@ -35,6 +37,7 @@ internal fun createSystemSettingsPage(activity: MainUiHost, animateChildren: Boo
     container.addView(languageChoiceCard(activity))
     container.addView(statusPopupsMuteCard(activity))
     container.addView(aodLyricsCard(activity))
+    container.addView(lockScreenLyricsCard(activity))
 
     container.addView(systemPermissionCard())
 
@@ -45,7 +48,7 @@ private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyrics
     val aodLyricsSwitch = SwitchCompat(activity).apply {
         isChecked = AppSettingsStore.isAodLyricsEnabled(activity)
         applyAirThemeTint(activity)
-        contentDescription = "Always-On Display & Lock Screen Lyrics"
+        contentDescription = "Samsung Native AOD Lyrics"
         layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -64,8 +67,8 @@ private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyrics
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                 setMargins(0, 0, dp(AirUiTokens.Space.Xl + AirUiTokens.Space.Lg), 0)
             }
-            addView(bigText(activity, "AOD & Lock Screen Lyrics"))
-            addView(smallHint(activity, "Keep live synchronized lyrics visible on the Always-On Display and Lock Screen widget."))
+            addView(bigText(activity, "Samsung AOD Lyrics"))
+            addView(smallHint(activity, "Streams live lyrics into Samsung's native Always-On Display Music widget with sideways burn-in scrolling."))
         })
 
         addView(aodLyricsSwitch)
@@ -73,18 +76,7 @@ private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyrics
         aodLyricsSwitch.setOnCheckedChangeListener { _, checked ->
             AppSettingsStore.setAodLyricsEnabled(activity, checked)
             if (checked) {
-                // Ensure overlay permission is granted for background activity launching
-                if (!Settings.canDrawOverlays(activity)) {
-                    runCatching {
-                        activity.startActivity(
-                            Intent(
-                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:${activity.packageName}")
-                            )
-                        )
-                    }
-                }
-                // Check battery optimizations so Samsung doesn't kill screen-off transitions
+                // Ensure battery optimizations are unrestricted so One UI doesn't terminate background lyrics
                 val pm = activity.getSystemService(PowerManager::class.java)
                 if (pm != null && !pm.isIgnoringBatteryOptimizations(activity.packageName)) {
                     runCatching {
@@ -94,12 +86,6 @@ private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyrics
                             }
                         )
                     }
-                }
-                // Request widget pinning if supported and not yet placed
-                val awm = AppWidgetManager.getInstance(activity)
-                val comp = ComponentName(activity, FixedLyricsPanelProvider::class.java)
-                if (awm != null && awm.isRequestPinAppWidgetSupported && awm.getAppWidgetIds(comp).isEmpty()) {
-                    runCatching { awm.requestPinAppWidget(comp, null, null) }
                 }
                 FixedLyricsPanelProvider.pushLatest(activity, force = true)
             } else {
@@ -111,6 +97,90 @@ private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyrics
             aodLyricsSwitch.isChecked = !aodLyricsSwitch.isChecked
         }
     }
+}
+
+private fun lockScreenLyricsCard(activity: MainUiHost): View = with(activity) lockScreenLyricsCard@ {
+    val lockScreenSwitch = SwitchCompat(activity).apply {
+        isChecked = AppSettingsStore.isLockScreenCardEnabled(activity)
+        applyAirThemeTint(activity)
+        contentDescription = "Lock Screen Lyrics Card"
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+    }
+
+    val isAccessibilityActive = isAccessibilityEnabled(activity)
+
+    return card(activity) {
+        orientation = LinearLayout.VERTICAL
+        isClickable = true
+        isFocusable = true
+        enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+
+        val topRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(0, 0, dp(AirUiTokens.Space.Xl + AirUiTokens.Space.Lg), 0)
+                }
+                addView(bigText(activity, "Lock Screen Lyrics Card"))
+                addView(smallHint(activity, "Renders a smooth, rounded One UI lyrics card directly on your Samsung Lock Screen below notifications."))
+            })
+            addView(lockScreenSwitch)
+        }
+        addView(topRow)
+
+        val hintText = if (isAccessibilityActive) {
+            smallHint(activity, "✓ Accessibility card service active")
+        } else {
+            smallHint(activity, "Tap to enable 'AirLyrics Lock Screen Card' in Accessibility Settings").apply {
+                setTextColor(activity.colorAccentText)
+            }
+        }
+        addView(hintText.apply {
+            setPadding(0, dp(AirUiTokens.Space.Sm), 0, 0)
+        })
+
+        lockScreenSwitch.setOnCheckedChangeListener { _, checked ->
+            AppSettingsStore.setLockScreenCardEnabled(activity, checked)
+            if (checked && !isAccessibilityEnabled(activity)) {
+                runCatching {
+                    activity.startActivity(
+                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            }
+        }
+
+        setOnClickListener {
+            if (!isAccessibilityEnabled(activity)) {
+                runCatching {
+                    activity.startActivity(
+                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            } else {
+                lockScreenSwitch.isChecked = !lockScreenSwitch.isChecked
+            }
+        }
+    }
+}
+
+private fun isAccessibilityEnabled(context: Context): Boolean {
+    val expected = ComponentName(
+        context,
+        LockScreenOverlayAccessibilityService::class.java
+    ).flattenToString()
+    val enabledServices = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    ) ?: return false
+    return enabledServices.split(':').any { it.equals(expected, ignoreCase = true) }
 }
 
 private fun statusPopupsMuteCard(activity: MainUiHost): View = with(activity) statusPopupsMuteCard@ {
