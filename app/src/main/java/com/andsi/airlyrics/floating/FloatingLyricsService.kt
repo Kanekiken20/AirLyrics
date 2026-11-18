@@ -208,6 +208,14 @@ open class FloatingLyricsService : Service() {
     }
 
     internal fun pushLyricsToLockScreenWidget(lyricLine: String?, trackTitle: String?) {
+        if (!AppSettingsStore.isAodLyricsEnabled(this)) {
+            FixedLyricsPanelProvider.updateLyrics(
+                context = this,
+                lyricLine = null,
+                trackTitle = null
+            )
+            return
+        }
         FixedLyricsPanelProvider.updateLyrics(
             context = this,
             lyricLine = lyricLine,

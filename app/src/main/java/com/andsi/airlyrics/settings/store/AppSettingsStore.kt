@@ -8,6 +8,7 @@ object AppSettingsStore {
     private const val PREFS_NAME = "app_settings"
     // Keep the original key so upgrades preserve the user's existing preference.
     private const val KEY_STATUS_POPUPS_MUTED = "toaster_muted"
+    private const val KEY_AOD_LYRICS_ENABLED = "aod_lyrics_enabled"
 
     private fun store(context: Context) = prefs(context, PREFS_NAME)
 
@@ -17,5 +18,13 @@ object AppSettingsStore {
 
     fun setStatusPopupsMuted(context: Context, muted: Boolean) {
         store(context).setBoolean(KEY_STATUS_POPUPS_MUTED, muted)
+    }
+
+    fun isAodLyricsEnabled(context: Context): Boolean {
+        return store(context).getBoolean(KEY_AOD_LYRICS_ENABLED, true)
+    }
+
+    fun setAodLyricsEnabled(context: Context, enabled: Boolean) {
+        store(context).setBoolean(KEY_AOD_LYRICS_ENABLED, enabled)
     }
 }

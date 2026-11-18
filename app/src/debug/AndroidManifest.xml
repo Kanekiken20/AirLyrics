@@ -3,13 +3,8 @@
     <application>
         <activity
             android:name="com.andsi.airlyrics.debug.LockScreenAodSimulationActivity"
-            android:exported="true"
+            android:exported="false"
             android:label="AirLyrics AOD Harness"
-            android:theme="@style/Theme.AppCompat.NoActionBar">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
     </application>
 </manifest>

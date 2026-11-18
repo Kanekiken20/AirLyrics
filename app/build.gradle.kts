@@ -131,7 +131,7 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".sandbox"
+            // Unify application ID with main package to prevent duplicate app installs or collisions
             versionNameSuffix = "-test"
         }
         release {

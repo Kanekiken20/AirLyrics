@@ -19,6 +19,8 @@ import com.andsi.airlyrics.ui.theme.colorAccentText
 import com.andsi.airlyrics.ui.theme.colorText
 import com.andsi.airlyrics.ui.theme.applyAirThemeTint
 import com.andsi.airlyrics.design.tokens.AirUiTokens
+import com.andsi.airlyrics.settings.store.AppSettingsStore
+import com.andsi.airlyrics.widget.FixedLyricsPanelProvider
 
 internal fun createSystemSettingsPage(activity: MainUiHost, animateChildren: Boolean): View = with(activity) createSystemSettingsPage@ {
     val container = pageContainer(activity)
@@ -26,10 +28,55 @@ internal fun createSystemSettingsPage(activity: MainUiHost, animateChildren: Boo
 
     container.addView(languageChoiceCard(activity))
     container.addView(statusPopupsMuteCard(activity))
+    container.addView(aodLyricsCard(activity))
 
     container.addView(systemPermissionCard())
 
     return scroll(activity, container, animateChildren = animateChildren)
+}
+
+private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyricsCard@ {
+    val aodLyricsSwitch = SwitchCompat(activity).apply {
+        isChecked = AppSettingsStore.isAodLyricsEnabled(activity)
+        applyAirThemeTint(activity)
+        contentDescription = "Always-On Display & Lock Screen Lyrics"
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+    }
+
+    return card(activity) {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        isClickable = true
+        isFocusable = true
+        enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+
+        addView(LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(0, 0, dp(AirUiTokens.Space.Xl + AirUiTokens.Space.Lg), 0)
+            }
+            addView(bigText(activity, "AOD & Lock Screen Lyrics"))
+            addView(smallHint(activity, "Keep live synchronized lyrics visible on the Always-On Display and Lock Screen widget."))
+        })
+
+        addView(aodLyricsSwitch)
+
+        aodLyricsSwitch.setOnCheckedChangeListener { _, checked ->
+            AppSettingsStore.setAodLyricsEnabled(activity, checked)
+            if (checked) {
+                FixedLyricsPanelProvider.pushLatest(activity, force = true)
+            } else {
+                FixedLyricsPanelProvider.updateLyrics(activity, null, null)
+                FixedLyricsPanelProvider.pushLatest(activity, force = true)
+            }
+        }
+        setOnClickListener {
+            aodLyricsSwitch.isChecked = !aodLyricsSwitch.isChecked
+        }
+    }
 }
 
 private fun statusPopupsMuteCard(activity: MainUiHost): View = with(activity) statusPopupsMuteCard@ {
