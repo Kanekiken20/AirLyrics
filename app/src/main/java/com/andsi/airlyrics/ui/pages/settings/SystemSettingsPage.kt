@@ -21,6 +21,12 @@ import com.andsi.airlyrics.ui.theme.applyAirThemeTint
 import com.andsi.airlyrics.design.tokens.AirUiTokens
 import com.andsi.airlyrics.settings.store.AppSettingsStore
 import com.andsi.airlyrics.widget.FixedLyricsPanelProvider
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 
 internal fun createSystemSettingsPage(activity: MainUiHost, animateChildren: Boolean): View = with(activity) createSystemSettingsPage@ {
     val container = pageContainer(activity)
@@ -67,6 +73,34 @@ private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyrics
         aodLyricsSwitch.setOnCheckedChangeListener { _, checked ->
             AppSettingsStore.setAodLyricsEnabled(activity, checked)
             if (checked) {
+                // Ensure overlay permission is granted for background activity launching
+                if (!Settings.canDrawOverlays(activity)) {
+                    runCatching {
+                        activity.startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${activity.packageName}")
+                            )
+                        )
+                    }
+                }
+                // Check battery optimizations so Samsung doesn't kill screen-off transitions
+                val pm = activity.getSystemService(PowerManager::class.java)
+                if (pm != null && !pm.isIgnoringBatteryOptimizations(activity.packageName)) {
+                    runCatching {
+                        activity.startActivity(
+                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = Uri.parse("package:${activity.packageName}")
+                            }
+                        )
+                    }
+                }
+                // Request widget pinning if supported and not yet placed
+                val awm = AppWidgetManager.getInstance(activity)
+                val comp = ComponentName(activity, FixedLyricsPanelProvider::class.java)
+                if (awm != null && awm.isRequestPinAppWidgetSupported && awm.getAppWidgetIds(comp).isEmpty()) {
+                    runCatching { awm.requestPinAppWidget(comp, null, null) }
+                }
                 FixedLyricsPanelProvider.pushLatest(activity, force = true)
             } else {
                 FixedLyricsPanelProvider.updateLyrics(activity, null, null)

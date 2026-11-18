@@ -10,6 +10,7 @@ $env:ANDROID_HOME = "C:\Users\user.20\Documents\ChatGPT\lo\.toolchain\android-sd
 & "$scriptDir\gradlew.bat" testDebugUnitTest `
     --tests "com.andsi.airlyrics.widget.*" `
     --tests "com.andsi.airlyrics.debug.*" `
+    --tests "com.andsi.airlyrics.aod.*" `
     --tests "com.andsi.airlyrics.floating.StationaryHoldGestureTest" `
     "-Pairlyrics.sourceDateEpoch=1731859200" `
     "-Pairlyrics.skipRustBuild=true"
@@ -22,6 +23,7 @@ $xmlFiles = @(
     "TEST-com.andsi.airlyrics.debug.LockScreenAodSimulationActivityTest.xml",
     "TEST-com.andsi.airlyrics.widget.SamsungLockScreenAodEndToEndTest.xml",
     "TEST-com.andsi.airlyrics.widget.FixedLyricsPanelProviderTest.xml",
+    "TEST-com.andsi.airlyrics.aod.LockScreenAodLyricsActivityTest.xml",
     "TEST-com.andsi.airlyrics.floating.StationaryHoldGestureTest.xml"
 )
 

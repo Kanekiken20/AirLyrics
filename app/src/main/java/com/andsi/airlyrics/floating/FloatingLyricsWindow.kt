@@ -403,12 +403,17 @@ class FloatingLyricsWindow(
     }
 
     private fun windowFlagsForCurrentBehavior(): Int {
-        return if (FloatingLyricsStyleStore.isClickThrough(context)) {
+        var flags = if (FloatingLyricsStyleStore.isClickThrough(context)) {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         } else {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
         }
+        if (com.andsi.airlyrics.settings.store.AppSettingsStore.isAodLyricsEnabled(context)) {
+            @Suppress("DEPRECATION")
+            flags = flags or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+        }
+        return flags
     }
 
     private fun dp(value: Int): Int {

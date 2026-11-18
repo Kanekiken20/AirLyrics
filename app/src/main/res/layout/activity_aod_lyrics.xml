@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/aodRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FF000000"
+    android:keepScreenOn="true">
+
+    <!-- Burn-in pixel-shifted container -->
+    <LinearLayout
+        android:id="@+id/aodContentContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingHorizontal="28dp"
+        android:paddingBottom="72dp">
+
+        <TextClock
+            android:id="@+id/aodClock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:format12Hour="h:mm"
+            android:format24Hour="HH:mm"
+            android:textColor="#CCFFFFFF"
+            android:textSize="54sp"
+            android:fontFamily="sans-serif-light" />
+
+        <TextView
+            android:id="@+id/aodTrackInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#88FFFFFF"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/aodCurrentLyric"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="36dp"
+            android:gravity="center"
+            android:lineSpacingExtra="6dp"
+            android:textColor="#FFFFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/aodNextLyric"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:gravity="center"
+            android:textColor="#66FFFFFF"
+            android:textSize="16sp" />
+
+    </LinearLayout>
+
+    <!-- Bottom hint left clear of in-display fingerprint zone -->
+    <TextView
+        android:id="@+id/aodDismissHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="36dp"
+        android:text="Double-tap to dismiss"
+        android:textColor="#44FFFFFF"
+        android:textSize="12sp" />
+
+</FrameLayout>
