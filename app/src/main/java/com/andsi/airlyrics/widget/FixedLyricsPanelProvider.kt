@@ -1,4 +1,4 @@
-package com.andsi.airlyrics.widget
+﻿package com.andsi.airlyrics.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -16,8 +16,12 @@ class FixedLyricsPanelProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == Intent.ACTION_SCREEN_ON) {
-            pushLatest(context, force = true)
+        when (intent.action) {
+            Intent.ACTION_SCREEN_ON,
+            Intent.ACTION_USER_PRESENT,
+            AppWidgetManager.ACTION_APPWIDGET_UPDATE -> {
+                pushLatest(context, force = true)
+            }
         }
     }
 
@@ -61,7 +65,7 @@ class FixedLyricsPanelProvider : AppWidgetProvider() {
                 }
                 val title = cachedTrackTitle
                 if (!title.isNullOrEmpty()) {
-                    return "♪ $title"
+                    return "â™ª $title"
                 }
                 return DEFAULT_PLACEHOLDER
             }
@@ -70,8 +74,8 @@ class FixedLyricsPanelProvider : AppWidgetProvider() {
 
     companion object {
         private const val MIN_UPDATE_INTERVAL_MS = 800L
-        private const val DEFAULT_PLACEHOLDER = "Waiting for music…"
-        private const val MAIN_ACTIVITY_CLASS = "com.andsi.airlyrics.app.MainActivity"
+        private const val DEFAULT_PLACEHOLDER = "Waiting for lyrics"
+        private const val MAIN_ACTIVITY_CLASS = "com.andsi.airlyrics.MainActivity"
 
         private val mainHandler = Handler(Looper.getMainLooper())
         private val throttleLock = Any()

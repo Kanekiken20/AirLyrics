@@ -26,7 +26,7 @@
         android:shadowDx="0"
         android:shadowDy="1"
         android:shadowRadius="2"
-        android:text="Waiting for music…"
+        android:text="Waiting for lyrics"
         android:textColor="#FFFFFF"
         android:textStyle="bold" />
 
