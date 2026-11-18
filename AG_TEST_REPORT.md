@@ -582,6 +582,37 @@ Per user directive, `airlyrics-test-samsung-probe.apk` was established as the pr
 - **Target Package:** `com.andsi.airlyrics.sandbox` (`versionName=1.2.10-test-samsung-probe`, `versionCode=21`)
 - **Safety Status:** Production package `com.andsi.airlyrics` (`UID 10292`) remains strictly isolated and untouched. All in-place updates use `adb install -r -d` with zero widget binding loss.
 
+---
+
+## 13. Persistent Keystore Binding & Production Source Compilation
+
+### 1. Build Script Hardening (`app/build.gradle.kts`)
+To ensure complete keystore persistence across both bytecode-patched builds and clean Gradle source builds, `app/build.gradle.kts` now formally binds `signingConfigs.debug` to the persistent keystore `chatgpt-artifacts/airlyrics-test-debug.jks`:
+```kotlin
+signingConfigs {
+    getByName("debug") {
+        storeFile = rootProject.file("chatgpt-artifacts/airlyrics-test-debug.jks")
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
+    }
+}
+```
+
+### 2. Clean Source Verification & Build Artifact
+- **Build Status:** Clean Gradle build (`BUILD SUCCESSFUL in 56s`, 0 errors, 0 runtime warnings).
+- **Source Output:** `app/build/outputs/apk/debug/app-debug.apk`
+- **Staged File:** `C:\Users\user.20\Downloads\airlyrics-debug-v2.apk`
+- **File Size:** `20,918,126 bytes`
+- **SHA-256 Digest:**
+  ```text
+  AB9E20184A4FB80BD08C0814E44807404AEDA771177291D562BC594B46847A62
+  ```
+- **Package:** `com.andsi.airlyrics.sandbox` (versionCode=21, versionName=1.2.10-test)
+- **Signer Certificate Digest:** `c761e26e6da1c2e1e9752564dda10b48ad596a556fb02dfa5a60c6f2663b0fab`
+- **Compatibility:** Guaranteed in-place update compatibility with `airlyrics-test-samsung-probe-patched.apk` (same signing certificate SHA-256). In-place updates via `adb install -r -d` preserve all active Lock Screen complication instances and AOD widget placements.
+
+
 
 
 

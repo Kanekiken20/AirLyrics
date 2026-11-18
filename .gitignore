@@ -30,3 +30,6 @@ app/src/main/jniLibs/**/*.so
 # Signing keys
 *.jks
 *.keystore
+
+# Test and patch artifacts
+chatgpt-artifacts/

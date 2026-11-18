@@ -112,6 +112,12 @@ android {
     }
 
     signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file("chatgpt-artifacts/airlyrics-test-debug.jks")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (hasReleaseSigning) {
             create("release") {
                 val resolvedStoreFile = releaseSigningStoreFile(releaseStoreFile!!)
