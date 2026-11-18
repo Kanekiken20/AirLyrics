@@ -131,8 +131,8 @@ android {
 
     buildTypes {
         debug {
-            // Unify application ID with main package to prevent duplicate app installs or collisions
-            versionNameSuffix = "-test"
+            applicationIdSuffix = ".overhaul"
+            versionNameSuffix = "-overhaul"
         }
         release {
             isMinifyEnabled = true
