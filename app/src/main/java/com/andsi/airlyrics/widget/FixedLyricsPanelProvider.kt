@@ -65,7 +65,7 @@ class FixedLyricsPanelProvider : AppWidgetProvider() {
                 }
                 val title = cachedTrackTitle
                 if (!title.isNullOrEmpty()) {
-                    return "â™ª $title"
+                    return "\u266A $title"
                 }
                 return DEFAULT_PLACEHOLDER
             }
