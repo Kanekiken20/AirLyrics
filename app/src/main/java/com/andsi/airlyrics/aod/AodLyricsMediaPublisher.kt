@@ -108,13 +108,10 @@ class AodLyricsMediaPublisher(
         isAodActive = false
 
         mediaSession?.apply {
-            setPlaybackState(
-                PlaybackState.Builder()
-                    .setState(PlaybackState.STATE_PAUSED, 0L, 0f)
-                    .build()
-            )
             isActive = false
+            release()
         }
+        mediaSession = null
         notificationManager.cancel(AOD_NOTIFICATION_ID)
     }
 

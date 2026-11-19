@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.VelocityTracker
 import android.view.View
@@ -30,6 +31,7 @@ import com.andsi.airlyrics.core.model.FloatingPosition
 import com.andsi.airlyrics.settings.store.AppSettingsStore
 import com.andsi.airlyrics.settings.store.FloatingLyricsFontStore
 import com.andsi.airlyrics.settings.store.FloatingLyricsStyleStore
+import java.lang.ref.WeakReference
 import kotlin.math.abs
 
 /**
@@ -43,6 +45,11 @@ class FloatingLyricsWindow(
     private val context: Context,
     private val onVisibilityChanged: (Boolean) -> Unit
 ) {
+    companion object {
+        @Volatile
+        private var activeAttachedView: WeakReference<View>? = null
+    }
+
     private val windowContext = if (Build.VERSION.SDK_INT >= 30) {
         val manager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         @Suppress("DEPRECATION")
@@ -51,6 +58,17 @@ class FloatingLyricsWindow(
     } else context
     private val windowManager = windowContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+
+    private val holdGesture = StationaryHoldGesture(
+        holdDurationMs = { 3000L },
+        driftThresholdPx = 22f * context.resources.displayMetrics.density
+    ) {
+        val view = lyricsView ?: return@StationaryHoldGesture
+        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        val styleStore = FloatingLyricsStyleStore(context)
+        styleStore.cycleSizePreset()
+        applyStyle()
+    }
 
     private var lyricsView: TextView? = null
     private var params: WindowManager.LayoutParams? = null
@@ -105,6 +123,7 @@ class FloatingLyricsWindow(
         }
 
         lyricsView?.let {
+            if (it.isAttachedToWindow) return true
             val refreshed = applyStyle()
             if (refreshed) onVisibilityChanged(true)
             return refreshed
@@ -137,7 +156,15 @@ class FloatingLyricsWindow(
             position = FloatingLyricsStyleStore.getRelativePosition(context)
             applyStyle(view)
             calculateLayout(view, layoutParams, remap = true)
+
+            activeAttachedView?.get()?.let { oldView ->
+                if (oldView !== view && oldView.isAttachedToWindow) {
+                    runCatching { windowManager.removeViewImmediate(oldView) }
+                }
+            }
             windowManager.addView(view, layoutParams)
+            activeAttachedView = WeakReference(view)
+
             view.onWindowConfigurationChanged = ::onConfigurationChanged
             view.addOnLayoutChangeListener(layoutListener)
             view.setOnApplyWindowInsetsListener { _, insets ->
@@ -161,7 +188,11 @@ class FloatingLyricsWindow(
         removeDockTab()
         activeSpringX?.cancel()
         activeSpringX = null
+        holdGesture.cancel()
         val view = lyricsView
+        if (activeAttachedView?.get() === view) {
+            activeAttachedView = null
+        }
         view?.removeCallbacks(refreshLayout)
         view?.removeOnLayoutChangeListener(layoutListener)
         view?.setOnApplyWindowInsetsListener(null)
@@ -235,14 +266,17 @@ class FloatingLyricsWindow(
                 touchStartY = event.rawY
                 velocityTracker?.recycle()
                 velocityTracker = VelocityTracker.obtain().apply { addMovement(event) }
+                holdGesture.onTouchDown(event, enabled = !isLocked)
                 true
             }
 
             MotionEvent.ACTION_MOVE -> {
                 velocityTracker?.addMovement(event)
+                holdGesture.onTouchMove(event)
                 if (isLocked || !gestureActive) {
                     true
                 } else {
+                    if (holdGesture.wasTriggered()) return true
                     if (!dragging && isClick(event)) return true
                     dragging = true
                     val bounds = geometry ?: return true
@@ -258,6 +292,15 @@ class FloatingLyricsWindow(
 
             MotionEvent.ACTION_UP -> {
                 if (!gestureActive) return true
+                val holdTriggered = holdGesture.wasTriggered()
+                holdGesture.cancel()
+                if (holdTriggered) {
+                    holdGesture.resetTriggerFlag()
+                    velocityTracker?.recycle()
+                    velocityTracker = null
+                    gestureActive = false
+                    return true
+                }
                 velocityTracker?.addMovement(event)
                 velocityTracker?.computeCurrentVelocity(1000)
                 val vx = velocityTracker?.xVelocity ?: 0f
@@ -310,6 +353,7 @@ class FloatingLyricsWindow(
             }
 
             MotionEvent.ACTION_CANCEL -> {
+                holdGesture.cancel()
                 velocityTracker?.recycle()
                 velocityTracker = null
                 if (gestureActive) scheduleLayout(remap = true)

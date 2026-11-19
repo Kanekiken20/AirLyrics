@@ -9,6 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
@@ -37,27 +40,31 @@ internal data class CardNotificationSpec(
 )
 
 /**
- * Publishes an ungrouped, non-transport ongoing notification whose default customContentView
- * renders the multi-line rounded AMOLED square card immediately on One UI 8.5 / LockStar 10011
- * without requiring a manual expand tap.
+ * Publishes an ongoing notification with rate-limit protection and clean VISIBILITY_PUBLIC
+ * rendering the multi-line rounded AMOLED square card immediately on One UI 8.5 / LockStar.
  */
 class LockScreenNotificationCardPublisher(
     private val context: Context,
     private val launchActivityClass: Class<*>? = null
 ) {
+
     companion object {
-        const val CHANNEL_ID = "airlyrics_lockscreen_card_v5"
-        private val LEGACY_CHANNEL_IDS = listOf(
-            "airlyrics_lockscreen_card",
-            "airlyrics_lockscreen_card_v4"
-        )
+        // Bumped to v6 so Android creates a fresh channel with explicit VISIBILITY_PUBLIC
+        // (modifying lockscreenVisibility on existing v5 is ignored by Android).
+        const val CHANNEL_ID = "airlyrics_lockscreen_card_v6"
         const val NOTIFICATION_ID = 4024
         const val STANDALONE_GROUP_KEY = "airlyrics_standalone_card_4024"
-        private const val SORT_KEY_TOP = "000_airlyrics_card"
-
-        // Set to false so One UI 8.5 displays the pure square card without standard header chrome.
-        // Flip to true only if a specific LockStar theme hides undecorated RemoteViews.
         const val USE_DECORATED_STYLE = false
+
+        private const val LEGACY_AOD_MEDIA_NOTIFICATION_ID = 4102
+        private val LEGACY_CHANNEL_IDS = listOf(
+            "airlyrics_lockscreen_card",
+            "airlyrics_lockscreen_card_v4",
+            "airlyrics_lockscreen_card_v5",
+            "airlyrics_aod_media"
+        )
+        private const val SORT_KEY_TOP = "000_airlyrics_card"
+        private const val MIN_UPDATE_INTERVAL_MS = 450L
 
         private const val BULLET = "\u2022"
         private const val MUSIC_NOTE = "\u266A"
@@ -66,7 +73,7 @@ class LockScreenNotificationCardPublisher(
             channelId = CHANNEL_ID,
             notificationId = NOTIFICATION_ID,
             groupKey = STANDALONE_GROUP_KEY,
-            category = NotificationCompat.CATEGORY_STATUS,
+            category = NotificationCompat.CATEGORY_TRANSPORT,
             priority = NotificationCompat.PRIORITY_MAX,
             visibility = NotificationCompat.VISIBILITY_PUBLIC,
             isGroupSummary = false,
@@ -76,39 +83,54 @@ class LockScreenNotificationCardPublisher(
 
     private val notificationManager: NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
     private val notificationManagerCompat: NotificationManagerCompat =
         NotificationManagerCompat.from(context)
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    @Volatile
+    private var isPublished = false
 
     @Volatile
     private var lastPublishedSnapshot: LockScreenLyricsSnapshot? = null
 
+    @Volatile
+    private var pendingSnapshot: LockScreenLyricsSnapshot? = null
+
+    @Volatile
+    private var lastNotifyElapsedMs = 0L
+
+    private val flushPendingRunnable = Runnable {
+        val queued = pendingSnapshot ?: return@Runnable
+        pendingSnapshot = null
+        publishInternal(queued, force = false)
+    }
+
     init {
+        cleanupLegacyNotificationsAndChannels()
         ensureNotificationChannel()
+    }
+
+    fun cleanupLegacyNotificationsAndChannels() {
+        runCatching { notificationManager.cancel(LEGACY_AOD_MEDIA_NOTIFICATION_ID) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            LEGACY_CHANNEL_IDS.forEach { oldId ->
+                runCatching { notificationManager.deleteNotificationChannel(oldId) }
+            }
+        }
     }
 
     fun ensureNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-
-        LEGACY_CHANNEL_IDS.forEach { oldId ->
-            if (notificationManager.getNotificationChannel(oldId) != null) {
-                notificationManager.deleteNotificationChannel(oldId)
-            }
-        }
-
-        val existing = notificationManager.getNotificationChannel(CHANNEL_ID)
-        if (existing != null &&
-            existing.importance == NotificationManager.IMPORTANCE_HIGH &&
-            existing.lockscreenVisibility == Notification.VISIBILITY_PUBLIC
-        ) {
-            return
-        }
+        if (notificationManager.getNotificationChannel(CHANNEL_ID) != null) return
 
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Lock Screen & AOD Lyrics Card",
+            "Lock Screen Lyrics Card",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Displays synchronized lyrics as a standalone card below the Lock Screen clock."
+            description = "Standalone rounded lyrics card on the Lock Screen."
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             setSound(null, null)
             enableVibration(false)
@@ -132,32 +154,28 @@ class LockScreenNotificationCardPublisher(
     fun buildNotification(snapshot: LockScreenLyricsSnapshot): Notification {
         ensureNotificationChannel()
 
-        val defaultSquareViews = buildDefaultSquareRemoteViews(snapshot)
-        val expandedSquareViews = buildExpandedRemoteViews(snapshot)
+        val defaultViews = buildDefaultSquareRemoteViews(snapshot)
+        val expandedViews = buildExpandedRemoteViews(snapshot)
         val contentIntent = buildContentPendingIntent()
 
         val trackMeta = formatTrackMeta(snapshot.trackTitle, snapshot.artistName)
         val currentText = snapshot.currentLine.ifBlank { "$MUSIC_NOTE Listening for lyrics\u2026" }
 
-        val builder = NotificationCompat.Builder(context, DEFAULT_SPEC.channelId)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_airlyrics_note)
-            .setContentTitle("AirLyrics")
-            .setSubText(trackMeta)
+            .setContentTitle(trackMeta)
             .setContentText(currentText)
-            .setCustomContentView(defaultSquareViews)
-            .setCustomBigContentView(expandedSquareViews)
-            .setCategory(DEFAULT_SPEC.category)
-            .setPriority(DEFAULT_SPEC.priority)
-            .setVisibility(DEFAULT_SPEC.visibility)
-            .setGroup(DEFAULT_SPEC.groupKey)
-            .setGroupSummary(DEFAULT_SPEC.isGroupSummary)
-            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
+            .setCustomContentView(defaultViews)
+            .setCustomBigContentView(expandedViews)
             .setOngoing(true)
-            .setAutoCancel(false)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setSilent(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setSortKey(SORT_KEY_TOP)
+            .setAutoCancel(false)
 
         if (DEFAULT_SPEC.usesDecoratedCustomViewStyle) {
             builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
@@ -166,27 +184,49 @@ class LockScreenNotificationCardPublisher(
         if (contentIntent != null) {
             builder.setContentIntent(contentIntent)
         }
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         }
-
-        return builder.build().apply {
-            flags = flags or Notification.FLAG_ONGOING_EVENT or Notification.FLAG_NO_CLEAR
-        }
+        return builder.build()
     }
 
     fun publish(snapshot: LockScreenLyricsSnapshot, force: Boolean = false): Boolean {
         if (!hasNotificationPermission()) return false
-        if (!force && snapshot == lastPublishedSnapshot) return true
+        if (!force && isPublished && snapshot == lastPublishedSnapshot) return true
+
+        val now = SystemClock.elapsedRealtime()
+        val elapsed = now - lastNotifyElapsedMs
+        if (!force && isPublished && elapsed < MIN_UPDATE_INTERVAL_MS) {
+            // Coalesce rapid ticks so we stay <= 2.2 updates/sec (well below Android 16's 5.0/sec cap)
+            pendingSnapshot = snapshot
+            mainHandler.removeCallbacks(flushPendingRunnable)
+            mainHandler.postDelayed(flushPendingRunnable, MIN_UPDATE_INTERVAL_MS - elapsed)
+            return true
+        }
+
+        mainHandler.removeCallbacks(flushPendingRunnable)
+        pendingSnapshot = null
+        return publishInternal(snapshot, force)
+    }
+
+    private fun publishInternal(snapshot: LockScreenLyricsSnapshot, force: Boolean): Boolean {
+        if (!hasNotificationPermission()) return false
+        if (!force && isPublished && snapshot == lastPublishedSnapshot) return true
 
         val notification = buildNotification(snapshot)
         notificationManager.notify(NOTIFICATION_ID, notification)
         lastPublishedSnapshot = snapshot
+        lastNotifyElapsedMs = SystemClock.elapsedRealtime()
+        isPublished = true
         return true
     }
 
     fun clear() {
+        mainHandler.removeCallbacks(flushPendingRunnable)
+        pendingSnapshot = null
+        // Strict guard: never spam NotificationManager.cancel() when already cleared
+        if (!isPublished && lastPublishedSnapshot == null) return
+        isPublished = false
         lastPublishedSnapshot = null
         notificationManager.cancel(NOTIFICATION_ID)
     }

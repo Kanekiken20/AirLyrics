@@ -7,6 +7,7 @@ import android.app.KeyguardManager
 import android.os.PowerManager
 import android.provider.Settings
 import com.andsi.airlyrics.aod.AodLyricsMediaPublisher
+import com.andsi.airlyrics.lockscreen.AirLyricsAodWidgetProvider
 import com.andsi.airlyrics.lockscreen.LockScreenLyricsSnapshot
 import com.andsi.airlyrics.lockscreen.LockScreenNotificationCardPublisher
 import com.andsi.airlyrics.lockscreen.LockScreenNotificationSuppressor
@@ -258,36 +259,44 @@ open class FloatingLyricsService : Service() {
 
         aodPublisher.setUpstreamController(MediaNotificationListenerService.activeMediaController)
 
-        // 1. Samsung Native AOD: Screen is OFF (!isInteractive) and music is playing
-        val showAod = !isInteractive && isAodEnabled && isPlaying
-        aodPublisher.update(
-            currentLine = lyricLine.orEmpty(),
-            nextLine = "",
+        val snapshot = LockScreenLyricsSnapshot(
             trackTitle = currentMedia.title,
             artistName = currentMedia.artist,
-            isPlaying = isPlaying,
-            shouldPublishOnAod = showAod,
-            scrollSideways = isScrollEnabled
+            previousLine = "",
+            currentLine = lyricLine.orEmpty(),
+            nextLine = "",
+            isPlaying = isPlaying
         )
+
+        // 1. Samsung Native AOD: Screen is OFF (!isInteractive), music is playing, and lock card is not active
+        val showAod = !isInteractive && isAodEnabled && isPlaying && !isLockCardEnabled
+        if (showAod) {
+            aodPublisher.update(
+                currentLine = lyricLine.orEmpty(),
+                nextLine = "",
+                trackTitle = currentMedia.title,
+                artistName = currentMedia.artist,
+                isPlaying = isPlaying,
+                shouldPublishOnAod = true,
+                scrollSideways = isScrollEnabled
+            )
+        } else {
+            aodPublisher.deactivate()
+        }
 
         // 2. Standalone Lock Screen & AOD Ongoing Card:
         // Shows when phone is locked (isLocked) or screen is off (!isInteractive), music is playing, and lyrics available.
         val shouldShowLockCard = (isLocked || !isInteractive) && isLockCardEnabled && isPlaying && !lyricLine.isNullOrBlank()
         if (shouldShowLockCard) {
-            val snapshot = LockScreenLyricsSnapshot(
-                trackTitle = currentMedia.title,
-                artistName = currentMedia.artist,
-                previousLine = "",
-                currentLine = lyricLine.orEmpty(),
-                nextLine = "",
-                isPlaying = isPlaying
-            )
             lockScreenPublisher.publish(snapshot)
         } else {
             lockScreenPublisher.clear()
         }
 
-        // 3. Broadcast to accessibility service if enabled
+        // 3. Native LockStar / AOD Square Card Widget
+        AirLyricsAodWidgetProvider.updateAllWidgets(this, snapshot)
+
+        // 4. Broadcast to accessibility service if enabled
         val showLockScreenAccessibilityCard = isInteractive && isLocked && isLockCardEnabled && isPlaying
         broadcastLockScreenCardState(
             shouldShow = showLockScreenAccessibilityCard,
@@ -297,7 +306,7 @@ open class FloatingLyricsService : Service() {
             artistName = currentMedia.artist
         )
 
-        // 4. Suppress other notifications only when lock screen card is showing
+        // 5. Suppress other notifications only when lock screen card is showing
         notificationSuppressor.setSuppressed(shouldShowLockCard && isSuppressNotifs)
     }
 

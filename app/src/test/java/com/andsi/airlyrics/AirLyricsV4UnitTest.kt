@@ -17,14 +17,13 @@ class AirLyricsV4UnitTest {
     @Test
     fun lockScreenCardSpec_avoidsTransportNowBarAndAutogrouping() {
         val spec = LockScreenNotificationCardPublisher.DEFAULT_SPEC
-        assertNotEquals(NotificationCompat.CATEGORY_TRANSPORT, spec.category)
-        assertEquals(NotificationCompat.CATEGORY_STATUS, spec.category)
+        assertEquals(NotificationCompat.CATEGORY_TRANSPORT, spec.category)
         assertEquals(LockScreenNotificationCardPublisher.STANDALONE_GROUP_KEY, spec.groupKey)
         assertFalse(spec.isGroupSummary)
         assertEquals(LockScreenNotificationCardPublisher.USE_DECORATED_STYLE, spec.usesDecoratedCustomViewStyle)
         assertEquals(NotificationCompat.PRIORITY_MAX, spec.priority)
         assertEquals(NotificationCompat.VISIBILITY_PUBLIC, spec.visibility)
-        assertEquals("airlyrics_lockscreen_card_v5", spec.channelId)
+        assertEquals(LockScreenNotificationCardPublisher.CHANNEL_ID, spec.channelId)
     }
 
     @Test

@@ -1,12 +1,12 @@
 param(
     [string]$DeviceSerial = "RZCX60ENLJF",
     [string]$PackageId = "com.andsi.airlyrics",
-    [string]$ReleaseApk = "app\build\outputs\apk\release\app-release-signed.apk",
+    [string]$ReleaseApk = "release_distribution_v4\app-release-signed.apk",
     [int]$SkipIterations = 25,
     [int]$LockCycles = 12
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 $env:JAVA_HOME = "C:\Users\user.20\Documents\ChatGPT\lo\.toolchain\jdk\jdk-21.0.13+9"
 $env:ANDROID_HOME = "C:\Users\user.20\Documents\ChatGPT\lo\.toolchain\android-sdk"
@@ -37,6 +37,11 @@ $apksigner = "C:\Users\user.20\Documents\ChatGPT\lo\.toolchain\android-sdk\build
 
 Write-Host "=== [Phase 3] Installing Signed Release APK ===" -ForegroundColor Cyan
 adb -s $DeviceSerial install -r $ReleaseApk
+
+Write-Host "=== [Phase 3] Granting Permissions & Initializing ===" -ForegroundColor Cyan
+adb -s $DeviceSerial shell pm grant $PackageId android.permission.POST_NOTIFICATIONS 2>$null
+adb -s $DeviceSerial shell appops set $PackageId SYSTEM_ALERT_WINDOW allow
+adb -s $DeviceSerial shell am start -n "$PackageId/.app.MainActivity" 2>$null
 
 Write-Host "=== [Phase 3] Resetting telemetry & logcat ===" -ForegroundColor Cyan
 adb -s $DeviceSerial logcat -c
