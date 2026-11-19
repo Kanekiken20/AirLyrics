@@ -256,7 +256,7 @@ class LyricsSearchLayoutTest {
             assertTrue(labels.contains(activity.getString(R.string.search_lyrics)))
             val bitmap=Bitmap.createBitmap(400,900,Bitmap.Config.ARGB_8888)
             content.draw(Canvas(bitmap))
-            File("/tmp/airlyrics-inline-word-results-v2.png").outputStream().use {
+            File(System.getProperty("java.io.tmpdir"), "airlyrics-inline-word-results-v2.png").outputStream().use {
                 bitmap.compress(Bitmap.CompressFormat.PNG,100,it)
             }
             val failed=initial.copy(sources=setOf(PlainLyricsSearchSource.NETEASE),results=mapOf(
@@ -276,7 +276,7 @@ class LyricsSearchLayoutTest {
             assertTrue(errorViews.any { it.text.toString().contains("酷狗") })
             val errorBitmap=Bitmap.createBitmap(400,900,Bitmap.Config.ARGB_8888)
             content.draw(Canvas(errorBitmap))
-            File("/tmp/airlyrics-word-inline-error.png").outputStream().use {
+            File(System.getProperty("java.io.tmpdir"), "airlyrics-word-inline-error.png").outputStream().use {
                 errorBitmap.compress(Bitmap.CompressFormat.PNG,100,it)
             }
             val chosen=rows.last()
@@ -314,7 +314,7 @@ class LyricsSearchLayoutTest {
                 layout(content,900)
                 val bitmap=Bitmap.createBitmap(400,900,Bitmap.Config.ARGB_8888)
                 content.draw(Canvas(bitmap))
-                File("/tmp/airlyrics-word-$name.png").outputStream().use {
+                File(System.getProperty("java.io.tmpdir"), "airlyrics-word-$name.png").outputStream().use {
                     bitmap.compress(Bitmap.CompressFormat.PNG,100,it)
                 }
                 bitmap.recycle()
@@ -371,7 +371,7 @@ class LyricsSearchLayoutTest {
             fun capture(name:String) {
                 val bitmap=Bitmap.createBitmap(400,900,Bitmap.Config.ARGB_8888)
                 content.draw(Canvas(bitmap))
-                File("/tmp/airlyrics-search-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
+                File(System.getProperty("java.io.tmpdir"), "airlyrics-search-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
                 bitmap.recycle()
             }
             descendants(content).filterIsInstance<AppBarLayout>().single().setExpanded(false,false)

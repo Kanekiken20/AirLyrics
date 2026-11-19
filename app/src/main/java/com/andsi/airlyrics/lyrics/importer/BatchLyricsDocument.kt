@@ -30,11 +30,12 @@ internal object BatchLyricsDocumentReader {
     data class Result(val name: String, val document: BatchLyricsDocument? = null, val failure: Failure? = null, val fingerprint: String = "")
 
     fun read(context: Context, uri: Uri, maxBytes: Int = LyricsFileStore.MAX_IMPORTED_LYRICS_BYTES): Result {
-        val name = runCatching {
+        val rawName = runCatching {
             context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
                 if (it.moveToFirst()) it.getString(0) else null
             }
-        }.getOrNull() ?: uri.lastPathSegment.orEmpty()
+        }.getOrNull() ?: uri.lastPathSegment ?: uri.path.orEmpty()
+        val name = rawName.substringAfterLast('/').substringAfterLast('\\')
         return runCatching {
             when (val read = LyricsFileStore.readTextFromUriWithResult(context, uri, maxBytes)) {
                 LyricsFileStore.ReadTextResult.TooLarge -> Result(name, failure = Failure.TOO_LARGE)

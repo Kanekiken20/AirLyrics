@@ -1,6 +1,7 @@
 package com.andsi.airlyrics.app.interaction
 
 import android.util.AtomicFile
+import com.andsi.airlyrics.util.safeFinishWrite
 import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -17,7 +18,7 @@ internal class LyricsDraftStore(
         val stream = file.startWrite()
         try {
             stream.write(JSONObject().put("version", 1).put("text", text).toString().toByteArray(Charsets.UTF_8))
-            file.finishWrite(stream)
+            file.safeFinishWrite(stream)
         } catch (error: Exception) {
             file.failWrite(stream)
             throw error
@@ -26,7 +27,10 @@ internal class LyricsDraftStore(
 
     fun read(id: String): Future<String?> = executor.submit<String?> {
         runCatching {
-            val json = JSONObject(atomic(id).readFully().toString(Charsets.UTF_8))
+            val file = atomic(id)
+            val bytes = file.readFully()
+            val raw = bytes.toString(Charsets.UTF_8)
+            val json = JSONObject(raw)
             if (json.getInt("version") == 1) json.getString("text") else null
         }.getOrNull()
     }

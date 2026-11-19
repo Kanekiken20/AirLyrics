@@ -7,6 +7,8 @@ import android.app.KeyguardManager
 import android.os.PowerManager
 import android.provider.Settings
 import com.andsi.airlyrics.aod.AodLyricsMediaPublisher
+import com.andsi.airlyrics.lockscreen.LockScreenLyricsSnapshot
+import com.andsi.airlyrics.lockscreen.LockScreenNotificationCardPublisher
 import com.andsi.airlyrics.lockscreen.LockScreenNotificationSuppressor
 import com.andsi.airlyrics.lockscreen.LockScreenOverlayAccessibilityService
 import com.andsi.airlyrics.media.MediaNotificationListenerService
@@ -186,6 +188,7 @@ open class FloatingLyricsService : Service() {
     private var isScreenOnWidgetReceiverRegistered = false
     private lateinit var aodPublisher: AodLyricsMediaPublisher
     private lateinit var notificationSuppressor: LockScreenNotificationSuppressor
+    private lateinit var lockScreenPublisher: LockScreenNotificationCardPublisher
 
     private val screenOnWidgetReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -267,18 +270,35 @@ open class FloatingLyricsService : Service() {
             scrollSideways = isScrollEnabled
         )
 
-        // 2. Lock Screen Card: Screen is ON (isInteractive), Keyguard is LOCKED, and music is playing
-        val showLockScreenCard = isInteractive && isLocked && isLockCardEnabled && isPlaying
+        // 2. Standalone Lock Screen & AOD Ongoing Card:
+        // Shows when phone is locked (isLocked) or screen is off (!isInteractive), music is playing, and lyrics available.
+        val shouldShowLockCard = (isLocked || !isInteractive) && isLockCardEnabled && isPlaying && !lyricLine.isNullOrBlank()
+        if (shouldShowLockCard) {
+            val snapshot = LockScreenLyricsSnapshot(
+                trackTitle = currentMedia.title,
+                artistName = currentMedia.artist,
+                previousLine = "",
+                currentLine = lyricLine.orEmpty(),
+                nextLine = "",
+                isPlaying = isPlaying
+            )
+            lockScreenPublisher.publish(snapshot)
+        } else {
+            lockScreenPublisher.clear()
+        }
+
+        // 3. Broadcast to accessibility service if enabled
+        val showLockScreenAccessibilityCard = isInteractive && isLocked && isLockCardEnabled && isPlaying
         broadcastLockScreenCardState(
-            shouldShow = showLockScreenCard,
+            shouldShow = showLockScreenAccessibilityCard,
             currentLine = lyricLine,
             nextLine = null,
             trackTitle = currentMedia.title,
             artistName = currentMedia.artist
         )
 
-        // 3. Suppress other notifications only when lock screen card is showing
-        notificationSuppressor.setSuppressed(showLockScreenCard && isSuppressNotifs)
+        // 4. Suppress other notifications only when lock screen card is showing
+        notificationSuppressor.setSuppressed(shouldShowLockCard && isSuppressNotifs)
     }
 
     internal fun pushLyricsToLockScreenWidget(lyricLine: String?, trackTitle: String?) {
@@ -349,6 +369,7 @@ open class FloatingLyricsService : Service() {
         displayScopeMonitor = DisplayScopeMonitor(this, ::applyDisplayScopeSnapshot)
         aodPublisher = AodLyricsMediaPublisher(this, syncHandler)
         notificationSuppressor = LockScreenNotificationSuppressor(this)
+        lockScreenPublisher = LockScreenNotificationCardPublisher(this)
         windowController = FloatingLyricsWindow(this) { visible ->
             if (!visible) {
                 syncHandler.removeCallbacks(mediaRestoreRunnable)
@@ -437,6 +458,7 @@ open class FloatingLyricsService : Service() {
         runCatching { unregisterReceiver(languageChangedReceiver) }
         unregisterScreenOnWidgetRefresh()
         pushLyricsToLockScreenWidget(null, null)
+        lockScreenPublisher.clear()
         aodPublisher.release()
         notificationSuppressor.restoreIfNeeded()
         broadcastLockScreenCardState(false, null, null, null, null)

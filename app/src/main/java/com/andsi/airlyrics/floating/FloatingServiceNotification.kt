@@ -55,6 +55,10 @@ internal object FloatingServiceNotification {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setGroup("airlyrics_fg_fallback_group")
+            .setGroupSummary(false)
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
             .setColor(accentColor)
             .setColorized(false)
 

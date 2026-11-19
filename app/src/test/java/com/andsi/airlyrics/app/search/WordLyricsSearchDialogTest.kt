@@ -131,7 +131,7 @@ class WordLyricsSearchDialogTest {
             val card=(dialog as LyricsSearchInputDialog).card
             val bitmap=Bitmap.createBitmap(card.width,card.height,Bitmap.Config.ARGB_8888)
             card.draw(Canvas(bitmap))
-            File("/tmp/airlyrics-word-dialog-options.png").outputStream().use {
+            File(System.getProperty("java.io.tmpdir"), "airlyrics-word-dialog-options.png").outputStream().use {
                 bitmap.compress(Bitmap.CompressFormat.PNG,100,it)
             }
             bitmap.recycle()
@@ -187,7 +187,7 @@ class WordLyricsSearchDialogTest {
                     val card=dialog.card
                     val bitmap=Bitmap.createBitmap(card.width,card.height,Bitmap.Config.ARGB_8888)
                     card.draw(Canvas(bitmap))
-                    File("/tmp/airlyrics-word-dialog-${if(dark) "dark" else "light"}.png").outputStream().use {
+                    File(System.getProperty("java.io.tmpdir"), "airlyrics-word-dialog-${if(dark) "dark" else "light"}.png").outputStream().use {
                         bitmap.compress(Bitmap.CompressFormat.PNG,100,it)
                     }
                     for(height in listOf(360,240)) {

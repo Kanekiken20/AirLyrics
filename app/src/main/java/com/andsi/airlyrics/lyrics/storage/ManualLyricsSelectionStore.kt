@@ -2,6 +2,7 @@ package com.andsi.airlyrics.lyrics.storage
 
 import android.content.Context
 import android.util.AtomicFile
+import com.andsi.airlyrics.util.safeFinishWrite
 import com.andsi.airlyrics.core.model.SongIdentity
 import com.andsi.airlyrics.lyrics.LyricsProviderResult
 import com.andsi.airlyrics.core.model.LyricsSearchMode
@@ -34,7 +35,7 @@ internal object ManualLyricsSelectionStore {
         }
         check(file.baseFile.parentFile!!.let { it.isDirectory || it.mkdirs() })
         val stream = file.startWrite()
-        try { stream.write(bytes); file.finishWrite(stream) }
+        try { stream.write(bytes); file.safeFinishWrite(stream) }
         catch (error: Exception) { file.failWrite(stream); throw error }
         check(file.readFully().contentEquals(bytes)) { "Selection write failed" }
     }

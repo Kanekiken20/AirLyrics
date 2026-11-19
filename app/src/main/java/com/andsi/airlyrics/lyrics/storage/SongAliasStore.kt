@@ -2,6 +2,7 @@ package com.andsi.airlyrics.lyrics.storage
 
 import android.content.Context
 import android.util.AtomicFile
+import com.andsi.airlyrics.util.safeFinishWrite
 import com.andsi.airlyrics.core.model.SongIdentity
 import java.io.File
 import org.json.JSONArray
@@ -89,7 +90,7 @@ internal object SongAliasStore {
         val stream = target.startWrite()
         try {
             stream.write(alias.toJson().toString().toByteArray(Charsets.UTF_8))
-            target.finishWrite(stream)
+            target.safeFinishWrite(stream)
         } catch (error: Exception) {
             target.failWrite(stream)
             throw error

@@ -8,3 +8,21 @@
 -keepclasseswithmembernames class * {
     native <methods>;
 }
+
+# AirLyrics Models & Cache DTOs
+-keep class com.andsi.airlyrics.cache.** { *; }
+-keep class com.andsi.airlyrics.core.model.** { *; }
+-keep class com.andsi.airlyrics.lyrics.** { *; }
+-keep class com.andsi.airlyrics.lockscreen.** { *; }
+-keep class com.andsi.airlyrics.floating.** { *; }
+-keep class com.andsi.airlyrics.media.** { *; }
+
+# Keep RemoteViews notification IDs and layout identifiers
+-keepclassmembers class **.R$* {
+    public static <fields>;
+}
+
+# Android Manifest components (Services, Receivers)
+-keep public class * extends android.app.Service
+-keep public class * extends android.content.BroadcastReceiver
+-keep public class * extends android.service.notification.NotificationListenerService

@@ -13,6 +13,7 @@ $env:ANDROID_HOME = "C:\Users\user.20\Documents\ChatGPT\lo\.toolchain\android-sd
     --tests "com.andsi.airlyrics.aod.*" `
     --tests "com.andsi.airlyrics.lockscreen.*" `
     --tests "com.andsi.airlyrics.floating.StationaryHoldGestureTest" `
+    --tests "com.andsi.airlyrics.AirLyricsV4UnitTest" `
     "-Pairlyrics.sourceDateEpoch=1731859200" `
     "-Pairlyrics.skipRustBuild=true"
 
@@ -26,7 +27,8 @@ $xmlFiles = @(
     "TEST-com.andsi.airlyrics.widget.FixedLyricsPanelProviderTest.xml",
     "TEST-com.andsi.airlyrics.aod.AodLyricsMediaPublisherTest.xml",
     "TEST-com.andsi.airlyrics.lockscreen.LockScreenComponentsTest.xml",
-    "TEST-com.andsi.airlyrics.floating.StationaryHoldGestureTest.xml"
+    "TEST-com.andsi.airlyrics.floating.StationaryHoldGestureTest.xml",
+    "TEST-com.andsi.airlyrics.AirLyricsV4UnitTest.xml"
 )
 
 $totalTests = 0

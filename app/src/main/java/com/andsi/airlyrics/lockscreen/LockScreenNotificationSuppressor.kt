@@ -80,24 +80,9 @@ class LockScreenNotificationSuppressor(private val context: Context) {
     }
 
     private fun tryEnableSecureSettingSuppression(): Boolean {
-        if (!hasSecureSettingsPermission()) return false
-        return runCatching {
-            val current = Settings.Secure.getInt(
-                context.contentResolver,
-                SECURE_KEY_LOCK_SCREEN_NOTIFS,
-                1
-            )
-            savedLockScreenShowNotifs = current
-            if (current != 0) {
-                Settings.Secure.putInt(
-                    context.contentResolver,
-                    SECURE_KEY_LOCK_SCREEN_NOTIFS,
-                    0
-                )
-            }
-            activeMode = SuppressionMode.SECURE_SETTINGS
-            true
-        }.getOrDefault(false)
+        // Do not disable global lock screen notifications (SECURE_KEY_LOCK_SCREEN_NOTIFS)
+        // because that kills the AirLyrics lock screen card itself along with other notifications.
+        return false
     }
 
     private fun tryEnableDndSuppression(): Boolean {

@@ -284,13 +284,18 @@ class FloatingLyricsWindow(
 
                 if (!isLocked && dragging) {
                     val screenW = windowContext.resources.displayMetrics.widthPixels
-                    val collapseLeft = vx < -850f || (p.x <= dp(16))
-                    val collapseRight = vx > 850f || (p.x >= (screenW - p.width - dp(16)))
+                    val collapse = FloatingGesturePhysics.shouldCollapseOnFling(
+                        velocityX = vx,
+                        cardX = p.x,
+                        cardWidth = p.width,
+                        screenWidth = screenW,
+                        edgeThresholdPx = dp(FloatingGesturePhysics.EDGE_PROXIMITY_DP)
+                    )
 
-                    when {
-                        collapseLeft -> collapseToSide(DockSide.LEFT, vx)
-                        collapseRight -> collapseToSide(DockSide.RIGHT, vx)
-                        else -> {
+                    when (collapse) {
+                        FloatingGesturePhysics.CollapseEdge.LEFT -> collapseToSide(DockSide.LEFT, vx)
+                        FloatingGesturePhysics.CollapseEdge.RIGHT -> collapseToSide(DockSide.RIGHT, vx)
+                        null -> {
                             val bounds = geometry
                             if (bounds != null) {
                                 p.x = p.x.coerceIn(0, bounds.travelX)

@@ -2,6 +2,7 @@ package com.andsi.airlyrics.lyrics.storage
 
 import android.content.Context
 import android.util.AtomicFile
+import com.andsi.airlyrics.util.safeFinishWrite
 import com.andsi.airlyrics.lyrics.LyricsProviderResult
 import com.andsi.airlyrics.lyrics.WordLyricsDocument
 import com.andsi.airlyrics.lyrics.parser.LrcParser
@@ -92,7 +93,7 @@ internal class SpicyLyricsCache(private val directory: File, private val clock: 
         check(directory.isDirectory || directory.mkdirs())
         val atomic = AtomicFile(file(key))
         val stream = atomic.startWrite()
-        try { stream.write(document.toString().toByteArray()); atomic.finishWrite(stream) }
+        try { stream.write(document.toString().toByteArray()); atomic.safeFinishWrite(stream) }
         catch (e: Exception) { atomic.failWrite(stream); throw e }
         LyricsStorage.markContentChanged()
     }

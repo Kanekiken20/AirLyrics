@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/lockscreen_card_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingHorizontal="2dp"
+    android:paddingVertical="2dp">
+
+    <LinearLayout
+        android:id="@+id/lockscreen_card_surface"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_lockscreen_lyrics_card"
+        android:orientation="vertical"
+        android:paddingStart="18dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="16dp">
+
+        <!-- Header Row: AirLyrics Pill + Track / Artist metadata -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_lockscreen_badge"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingTop="3dp"
+                android:paddingEnd="9dp"
+                android:paddingBottom="3dp">
+
+                <ImageView
+                    android:layout_width="13dp"
+                    android:layout_height="13dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_airlyrics_note"
+                    android:tint="#9AB4FF" />
+
+                <TextView
+                    android:id="@+id/tv_card_brand"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="0.03"
+                    android:text="AirLyrics"
+                    android:textColor="#D6E2FF"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_track_meta"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif"
+                android:gravity="end"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#94A0B8"
+                android:textSize="12sp"
+                tools:text="Exchange â€¢ Bryson Tiller" />
+        </LinearLayout>
+
+        <!-- Previous / Context Lyric Line -->
+        <TextView
+            android:id="@+id/tv_lyric_prev"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif"
+            android:includeFontPadding="false"
+            android:lineSpacingMultiplier="1.12"
+            android:maxLines="1"
+            android:textColor="#66FFFFFF"
+            android:textSize="14sp"
+            tools:text="Waiting in a car" />
+
+        <!-- Active / Current Lyric Line -->
+        <TextView
+            android:id="@+id/tv_lyric_current"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:includeFontPadding="false"
+            android:lineSpacingMultiplier="1.15"
+            android:maxLines="3"
+            android:textColor="#FFFFFFFF"
+            android:textSize="19sp"
+            android:textStyle="bold"
+            tools:text="Waiting for a ride in the dark" />
+
+        <!-- Next / Upcoming Lyric Line -->
+        <TextView
+            android:id="@+id/tv_lyric_next"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif"
+            android:includeFontPadding="false"
+            android:lineSpacingMultiplier="1.12"
+            android:maxLines="2"
+            android:textColor="#8CFFFFFF"
+            android:textSize="14sp"
+            tools:text="The night city grows" />
+    </LinearLayout>
+</FrameLayout>

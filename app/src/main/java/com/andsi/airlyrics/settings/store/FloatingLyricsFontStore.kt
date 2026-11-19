@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
 import android.util.AtomicFile
+import com.andsi.airlyrics.util.safeFinishWrite
 import android.util.LruCache
 import android.widget.TextView
 import androidx.annotation.RequiresApi
@@ -54,7 +55,7 @@ object FloatingLyricsFontStore {
 
         val directory = fontDirectory(context)
         if (!directory.exists() && !directory.mkdirs()) return ImportResult.ReadFailed
-        val temporary = File(directory, TEMP_FONT_FILE)
+        val temporary = File(directory, "custom_font_${System.nanoTime()}.importing")
 
         return try {
             val input = context.contentResolver.openInputStream(uri) ?: return ImportResult.ReadFailed
@@ -273,7 +274,7 @@ object FloatingLyricsFontStore {
         val output = runCatching { atomicFile.startWrite() }.getOrNull() ?: return false
         return try {
             source.inputStream().use { it.copyTo(output) }
-            atomicFile.finishWrite(output)
+            atomicFile.safeFinishWrite(output)
             true
         } catch (_: Exception) {
             atomicFile.failWrite(output)
@@ -294,7 +295,7 @@ object FloatingLyricsFontStore {
                 if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
             }
         }.getOrNull()
-        return sanitizeDisplayName(queriedName ?: uri.lastPathSegment.orEmpty())
+        return sanitizeDisplayName(queriedName ?: uri.lastPathSegment ?: uri.path.orEmpty())
     }
 
     private fun documentSize(context: Context, uri: Uri): Long? {
@@ -319,6 +320,7 @@ object FloatingLyricsFontStore {
     private fun sanitizeDisplayName(value: String): String {
         return value
             .substringAfterLast('/')
+            .substringAfterLast('\\')
             .filterNot { it.isISOControl() }
             .trim()
             .take(120)
