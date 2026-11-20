@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/dock_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="2dp">
+
+    <LinearLayout
+        android:id="@+id/dock_widget_surface"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_oneui_lyrics_dock"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:id="@+id/tv_dock_play_state"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@drawable/bg_oneui_lockscreen_pill"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="▶"
+            android:textColor="#96B8FF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_dock_track_meta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#A6B4CC"
+                android:textSize="11sp"
+                tools:text="Midnight City • M83" />
+
+            <TextView
+                android:id="@+id/tv_dock_lyric_line"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#FFFFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                tools:text="Waiting for a ride in the dark" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/iv_dock_note"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_airlyrics_note"
+            android:tint="#96B8FF" />
+    </LinearLayout>
+</FrameLayout>

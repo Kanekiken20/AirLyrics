@@ -6,6 +6,7 @@ import android.app.Service
 import android.app.KeyguardManager
 import android.os.PowerManager
 import com.andsi.airlyrics.lockscreen.AirLyricsAodWidgetProvider
+import com.andsi.airlyrics.lockscreen.AirLyricsDockWidgetProvider
 import com.andsi.airlyrics.lockscreen.LockScreenLyricsSnapshot
 import com.andsi.airlyrics.lockscreen.LockScreenNotificationCardPublisher
 import android.content.BroadcastReceiver
@@ -190,7 +191,9 @@ open class FloatingLyricsService : Service() {
 
     internal fun shouldObserveExternalSurfaces(): Boolean {
         return AppSettingsStore.isLockScreenCardEnabled(this) ||
-            (AppSettingsStore.isAodLyricsEnabled(this) && AirLyricsAodWidgetProvider.hasActiveWidgets(this))
+            (AppSettingsStore.isAodLyricsEnabled(this) &&
+                (AirLyricsAodWidgetProvider.hasActiveWidgets(this) ||
+                    AirLyricsDockWidgetProvider.hasActiveWidgets(this)))
     }
 
     internal fun shouldSyncExternalSurfaces(): Boolean {
@@ -290,8 +293,15 @@ open class FloatingLyricsService : Service() {
                 isInteractive = isInteractive,
                 force = forceImmediate
             )
+            AirLyricsDockWidgetProvider.updateAllWidgets(
+                context = this,
+                snapshot = snapshot,
+                isInteractive = isInteractive,
+                force = forceImmediate
+            )
         } else {
             AirLyricsAodWidgetProvider.clearWidgets(this)
+            AirLyricsDockWidgetProvider.clearWidgets(this)
         }
     }
 
@@ -433,6 +443,7 @@ open class FloatingLyricsService : Service() {
         unregisterScreenOnWidgetRefresh()
         lockScreenPublisher.clear()
         AirLyricsAodWidgetProvider.clearWidgets(this)
+        AirLyricsDockWidgetProvider.clearWidgets(this)
         if (::windowController.isInitialized) {
             windowController.hide(notifyVisibilityChanged = false)
         }

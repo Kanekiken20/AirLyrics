@@ -20,6 +20,7 @@ import com.andsi.airlyrics.ui.theme.colorText
 import com.andsi.airlyrics.ui.theme.applyAirThemeTint
 import com.andsi.airlyrics.design.tokens.AirUiTokens
 import com.andsi.airlyrics.lockscreen.AirLyricsAodWidgetProvider
+import com.andsi.airlyrics.lockscreen.AirLyricsDockWidgetProvider
 import com.andsi.airlyrics.settings.store.AppSettingsStore
 import com.andsi.airlyrics.widget.FixedLyricsPanelProvider
 import android.content.Intent
@@ -64,8 +65,8 @@ private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyrics
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                 setMargins(0, 0, dp(AirUiTokens.Space.Xl + AirUiTokens.Space.Lg), 0)
             }
-            addView(bigText(activity, "LockStar AOD Lyrics Widget"))
-            addView(smallHint(activity, "Pure-black AMOLED widget placed below your AOD clock via Good Lock LockStar without altering Samsung's native media player."))
+            addView(bigText(activity, "LockStar AOD & Dock Widgets"))
+            addView(smallHint(activity, "Feeds the 4x4 pure-black AMOLED AOD square card and Now Playing Dock widget via Good Lock LockStar without altering Samsung's native media player."))
         })
 
         addView(aodLyricsSwitch)
@@ -84,9 +85,11 @@ private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyrics
                     }
                 }
                 AirLyricsAodWidgetProvider.pushLatest(activity, force = true)
+                AirLyricsDockWidgetProvider.pushLatest(activity, force = true)
                 FixedLyricsPanelProvider.pushLatest(activity, force = true)
             } else {
                 AirLyricsAodWidgetProvider.clearWidgets(activity)
+                AirLyricsDockWidgetProvider.clearWidgets(activity)
                 FixedLyricsPanelProvider.updateLyrics(activity, null, null)
                 FixedLyricsPanelProvider.pushLatest(activity, force = true)
             }

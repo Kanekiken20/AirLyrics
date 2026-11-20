@@ -56,17 +56,12 @@ object AppSettingsStore {
     fun setSuppressLockScreenNotifications(context: Context, enabled: Boolean) {
         store(context).setBoolean(KEY_SUPPRESS_LOCK_NOTIFS, enabled)
     }
-
-    @Deprecated("Floating side-swipe docking overlay has been removed.")
-    fun getFloatingCollapsedSide(@Suppress("UNUSED_PARAMETER") context: Context): String {
-        return "NONE"
+    fun getFloatingCollapsedSide(context: Context): String {
+        return store(context).getString(KEY_FLOATING_COLLAPSED_SIDE, "NONE") ?: "NONE"
     }
-
-    @Deprecated("Floating side-swipe docking overlay has been removed.")
-    fun setFloatingCollapsedSide(context: Context, @Suppress("UNUSED_PARAMETER") side: String) {
-        store(context).setString(KEY_FLOATING_COLLAPSED_SIDE, "NONE")
+    fun setFloatingCollapsedSide(context: Context, side: String) {
+        store(context).setString(KEY_FLOATING_COLLAPSED_SIDE, side)
     }
-
     fun getFloatingYFraction(context: Context): Float {
         return store(context).getFloat(KEY_FLOATING_Y_FRACTION, 0.22f)
     }

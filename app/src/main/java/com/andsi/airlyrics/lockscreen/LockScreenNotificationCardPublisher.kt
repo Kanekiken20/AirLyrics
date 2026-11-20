@@ -195,8 +195,10 @@ class LockScreenNotificationCardPublisher(
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setSortKey(SORT_KEY_TOP)
+            .setGroup(STANDALONE_GROUP_KEY)
+            .setGroupSummary(false)
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
             .setAutoCancel(false)
-
         if (DEFAULT_SPEC.usesDecoratedCustomViewStyle) {
             builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
         }

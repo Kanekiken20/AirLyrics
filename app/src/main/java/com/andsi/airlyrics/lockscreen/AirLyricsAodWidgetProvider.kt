@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -21,10 +22,10 @@ import kotlin.math.roundToInt
  * OLED burn-in pixel shifting.
  */
 class AirLyricsAodWidgetProvider : AppWidgetProvider() {
-
     private data class WidgetVisualKey(
         val trackTitle: String,
         val artistName: String,
+        val previousLine: String,
         val currentLine: String,
         val nextLine: String,
         val isPlaying: Boolean
@@ -178,11 +179,10 @@ class AirLyricsAodWidgetProvider : AppWidgetProvider() {
         ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_lockstar_aod_lyrics)
             val density = context.resources.displayMetrics.density
-            val basePadH = (12f * density).roundToInt()
-            val basePadV = (8f * density).roundToInt()
+            val basePadH = (16f * density).roundToInt()
+            val basePadV = (14f * density).roundToInt()
             val dx = (shiftXdp * density).roundToInt()
             val dy = (shiftYdp * density).roundToInt()
-
             views.setViewPadding(
                 R.id.aod_widget_content,
                 (basePadH + dx).coerceAtLeast(0),
@@ -190,18 +190,22 @@ class AirLyricsAodWidgetProvider : AppWidgetProvider() {
                 (basePadH - dx).coerceAtLeast(0),
                 (basePadV - dy).coerceAtLeast(0)
             )
-
             val meta = listOf(snapshot.trackTitle.trim(), snapshot.artistName.trim())
                 .filter { it.isNotEmpty() }
                 .joinToString(" $BULLET ")
-
             if (meta.isNotEmpty() && snapshot.isPlaying) {
                 views.setTextViewText(R.id.tv_aod_track_meta, meta)
                 views.setViewVisibility(R.id.tv_aod_track_meta, View.VISIBLE)
             } else {
                 views.setViewVisibility(R.id.tv_aod_track_meta, View.GONE)
             }
-
+            val prev = if (snapshot.isPlaying) snapshot.previousLine.trim() else ""
+            if (prev.isNotEmpty()) {
+                views.setTextViewText(R.id.tv_aod_lyric_prev, prev)
+                views.setViewVisibility(R.id.tv_aod_lyric_prev, View.VISIBLE)
+            } else {
+                views.setViewVisibility(R.id.tv_aod_lyric_prev, View.GONE)
+            }
             val current = snapshot.currentLine.trim().ifEmpty {
                 if (snapshot.isPlaying && meta.isNotEmpty()) "$MUSIC_NOTE $meta" else "$MUSIC_NOTE AirLyrics"
             }
@@ -240,23 +244,31 @@ class AirLyricsAodWidgetProvider : AppWidgetProvider() {
         private fun LockScreenLyricsSnapshot.toVisualKey() = WidgetVisualKey(
             trackTitle = trackTitle.trim(),
             artistName = artistName.trim(),
+            previousLine = previousLine.trim(),
             currentLine = currentLine.trim(),
             nextLine = nextLine.trim(),
             isPlaying = isPlaying
         )
-
         private fun isDisplayInteractive(context: Context): Boolean {
             return context.getSystemService(PowerManager::class.java)?.isInteractive == true
         }
     }
-
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         pushLatest(context, force = true)
     }
-
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         val snapshot = lastSnapshot ?: idleSnapshot()
         appWidgetManager.updateAppWidget(appWidgetIds, buildWidgetViews(context, snapshot, 0, 0))
+    }
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        val snapshot = lastSnapshot ?: idleSnapshot()
+        appWidgetManager.updateAppWidget(appWidgetId, buildWidgetViews(context, snapshot, 0, 0))
     }
 }
