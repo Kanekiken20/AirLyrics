@@ -11,14 +11,14 @@
         android:id="@+id/lockscreen_card_surface"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/bg_lockscreen_lyrics_card"
+        android:background="@drawable/bg_oneui_lockscreen_card"
         android:orientation="vertical"
-        android:paddingStart="18dp"
-        android:paddingTop="14dp"
-        android:paddingEnd="18dp"
+        android:paddingStart="20dp"
+        android:paddingTop="15dp"
+        android:paddingEnd="20dp"
         android:paddingBottom="16dp">
 
-        <!-- Header Row: AirLyrics Pill + Track / Artist metadata -->
+        <!-- One UI Header Row: Brand Pill + Track / Artist Metadata -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -28,7 +28,7 @@
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_lockscreen_badge"
+                android:background="@drawable/bg_oneui_lockscreen_pill"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="8dp"
@@ -37,11 +37,11 @@
                 android:paddingBottom="3dp">
 
                 <ImageView
-                    android:layout_width="13dp"
-                    android:layout_height="13dp"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
                     android:contentDescription="@null"
                     android:src="@drawable/ic_airlyrics_note"
-                    android:tint="#9AB4FF" />
+                    android:tint="#96B8FF" />
 
                 <TextView
                     android:id="@+id/tv_card_brand"
@@ -50,9 +50,9 @@
                     android:layout_marginStart="5dp"
                     android:fontFamily="sans-serif-medium"
                     android:includeFontPadding="false"
-                    android:letterSpacing="0.03"
+                    android:letterSpacing="0.02"
                     android:text="AirLyrics"
-                    android:textColor="#D6E2FF"
+                    android:textColor="#DCE6FF"
                     android:textSize="11sp" />
             </LinearLayout>
 
@@ -67,9 +67,9 @@
                 android:gravity="end"
                 android:includeFontPadding="false"
                 android:maxLines="1"
-                android:textColor="#94A0B8"
+                android:textColor="#A6B1C6"
                 android:textSize="12sp"
-                tools:text="Exchange â€¢ Bryson Tiller" />
+                tools:text="Exchange • Bryson Tiller" />
         </LinearLayout>
 
         <!-- Previous / Context Lyric Line -->
@@ -81,10 +81,10 @@
             android:ellipsize="end"
             android:fontFamily="sans-serif"
             android:includeFontPadding="false"
-            android:lineSpacingMultiplier="1.12"
+            android:lineSpacingMultiplier="1.1"
             android:maxLines="1"
-            android:textColor="#66FFFFFF"
-            android:textSize="14sp"
+            android:textColor="#5CFFFFFF"
+            android:textSize="13.5sp"
             tools:text="Waiting in a car" />
 
         <!-- Active / Current Lyric Line -->
@@ -96,10 +96,10 @@
             android:ellipsize="end"
             android:fontFamily="sans-serif-medium"
             android:includeFontPadding="false"
-            android:lineSpacingMultiplier="1.15"
+            android:lineSpacingMultiplier="1.16"
             android:maxLines="3"
             android:textColor="#FFFFFFFF"
-            android:textSize="19sp"
+            android:textSize="19.5sp"
             android:textStyle="bold"
             tools:text="Waiting for a ride in the dark" />
 
@@ -114,8 +114,22 @@
             android:includeFontPadding="false"
             android:lineSpacingMultiplier="1.12"
             android:maxLines="2"
-            android:textColor="#8CFFFFFF"
+            android:textColor="#8AFFFFFF"
             android:textSize="14sp"
             tools:text="The night city grows" />
+
+        <!-- Subtle One UI Playback Progress Bar -->
+        <ProgressBar
+            android:id="@+id/pb_card_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:layout_marginTop="12dp"
+            android:max="100"
+            android:progress="0"
+            android:progressDrawable="@drawable/progress_oneui_lockscreen"
+            android:visibility="gone"
+            tools:progress="42"
+            tools:visibility="visible" />
     </LinearLayout>
 </FrameLayout>

@@ -1,8 +1,9 @@
-package com.andsi.airlyrics.floating
+﻿package com.andsi.airlyrics.floating
 
 /**
  * Pure gesture and physics decision helper for floating lyrics window collapse and springs.
  */
+@Deprecated("Floating side-swipe collapse overlay has been removed.")
 object FloatingGesturePhysics {
     const val SPRING_STIFFNESS = 220f
     const val SPRING_DAMPING_RATIO = 0.85f // Calibrated smooth response without jarring bounce

@@ -33,3 +33,5 @@ app/src/main/jniLibs/**/*.so
 
 # Test and patch artifacts
 chatgpt-artifacts/
+
+release_distribution_v4/

@@ -1,4 +1,4 @@
-package com.andsi.airlyrics.floating
+﻿package com.andsi.airlyrics.floating
 
 import com.andsi.airlyrics.core.model.LyricsSearchMode
 import com.andsi.airlyrics.lyrics.LyricsSearchCoordinator
@@ -19,7 +19,8 @@ import com.andsi.airlyrics.settings.store.LyricsOffsetStore
 import com.andsi.airlyrics.settings.store.LyricsSettingsStore
 
 internal fun FloatingLyricsService.shouldSyncLyrics(): Boolean {
-    return isWindowControllerReady() && windowController.isVisible
+    return (isWindowControllerReady() && windowController.isVisible) ||
+        shouldSyncExternalSurfaces()
 }
 
 internal fun FloatingLyricsService.startLyricsSync() {
@@ -27,6 +28,7 @@ internal fun FloatingLyricsService.startLyricsSync() {
     if (!shouldSyncLyrics()) return
 
     renderer.refresh()
+    pushLyricsToLockScreenWidget(renderer.lastRenderedText, currentMedia.title)
     scheduleNextLyricsSync()
 }
 
@@ -40,7 +42,17 @@ internal fun FloatingLyricsService.stopLyricsSync() {
 }
 
 internal fun FloatingLyricsService.lyricsSyncIntervalMs(): Long {
-    return renderer.nextSyncDelayMs(if (renderer.isWordByWordActive()) 40L else 300L)
+    val overlayVisible = isWindowControllerReady() && windowController.isVisible
+    val interactive = isDisplayInteractive()
+    return when {
+        overlayVisible && interactive ->
+            renderer.nextSyncDelayMs(if (renderer.isWordByWordActive()) 40L else 300L)
+        interactive ->
+            renderer.nextSyncDelayMs(450L).coerceAtLeast(250L)
+        else ->
+            // Battery-conscious AOD wake interval: wake near the next lyric boundary (>= 600ms)
+            renderer.nextSyncDelayMs(2_000L).coerceAtLeast(600L)
+    }
 }
 
 internal fun FloatingLyricsService.applyLyricsOffset(offsetMs: Long) {
@@ -166,12 +178,14 @@ internal fun FloatingLyricsService.applyLyricsResult(
         } else {
             markLyricsUnavailable(media.playbackLyricsKey())
         }
+        pushLyricsToLockScreenWidget(renderer.lastRenderedText, media.title)
         scheduleNextLyricsSync()
         return
     }
 
     renderer.clear()
     renderer.show { lookupFailureText(result.exceptionOrNull(), media) }
+    pushLyricsToLockScreenWidget(null, media.title)
     markLyricsUnavailable(media.playbackLyricsKey())
 }
 

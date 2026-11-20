@@ -25,8 +25,28 @@ data class LockScreenLyricsSnapshot(
     val previousLine: String = "",
     val currentLine: String,
     val nextLine: String = "",
-    val isPlaying: Boolean = true
-)
+    val isPlaying: Boolean = true,
+    val positionMs: Long = 0L,
+    val durationMs: Long = 0L
+) {
+    internal fun quantizedProgressBucket(): Int {
+        if (durationMs <= 0L) return -1
+        val pct = ((positionMs.coerceIn(0L, durationMs) * 100L) / durationMs).toInt()
+        // Quantize to 2% increments so millisecond ticks never spam NotificationManager.
+        return (pct / 2) * 2
+    }
+
+    internal fun visuallyEquivalentTo(other: LockScreenLyricsSnapshot?): Boolean {
+        if (other == null) return false
+        return trackTitle == other.trackTitle &&
+            artistName == other.artistName &&
+            previousLine == other.previousLine &&
+            currentLine == other.currentLine &&
+            nextLine == other.nextLine &&
+            isPlaying == other.isPlaying &&
+            quantizedProgressBucket() == other.quantizedProgressBucket()
+    }
+}
 
 internal data class CardNotificationSpec(
     val channelId: String,
@@ -192,7 +212,7 @@ class LockScreenNotificationCardPublisher(
 
     fun publish(snapshot: LockScreenLyricsSnapshot, force: Boolean = false): Boolean {
         if (!hasNotificationPermission()) return false
-        if (!force && isPublished && snapshot == lastPublishedSnapshot) return true
+        if (!force && isPublished && snapshot.visuallyEquivalentTo(lastPublishedSnapshot)) return true
 
         val now = SystemClock.elapsedRealtime()
         val elapsed = now - lastNotifyElapsedMs
@@ -211,7 +231,7 @@ class LockScreenNotificationCardPublisher(
 
     private fun publishInternal(snapshot: LockScreenLyricsSnapshot, force: Boolean): Boolean {
         if (!hasNotificationPermission()) return false
-        if (!force && isPublished && snapshot == lastPublishedSnapshot) return true
+        if (!force && isPublished && snapshot.visuallyEquivalentTo(lastPublishedSnapshot)) return true
 
         val notification = buildNotification(snapshot)
         notificationManager.notify(NOTIFICATION_ID, notification)
@@ -255,6 +275,8 @@ class LockScreenNotificationCardPublisher(
         } else {
             views.setViewVisibility(R.id.tv_default_lyric_next, View.GONE)
         }
+
+        bindProgressBar(views, R.id.pb_default_card_progress, snapshot)
         return views
     }
 
@@ -287,7 +309,25 @@ class LockScreenNotificationCardPublisher(
         } else {
             views.setViewVisibility(R.id.tv_lyric_next, View.GONE)
         }
+
+        bindProgressBar(views, R.id.pb_card_progress, snapshot)
         return views
+    }
+
+    private fun bindProgressBar(
+        views: RemoteViews,
+        progressBarId: Int,
+        snapshot: LockScreenLyricsSnapshot
+    ) {
+        if (snapshot.durationMs > 0L) {
+            val pct = ((snapshot.positionMs.coerceIn(0L, snapshot.durationMs) * 100L) / snapshot.durationMs)
+                .toInt()
+                .coerceIn(0, 100)
+            views.setProgressBar(progressBarId, 100, pct, false)
+            views.setViewVisibility(progressBarId, View.VISIBLE)
+        } else {
+            views.setViewVisibility(progressBarId, View.GONE)
+        }
     }
 
     internal fun formatTrackMeta(trackTitle: String, artistName: String): String {

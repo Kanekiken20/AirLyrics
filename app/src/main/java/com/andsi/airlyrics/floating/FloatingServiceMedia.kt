@@ -1,4 +1,4 @@
-package com.andsi.airlyrics.floating
+﻿package com.andsi.airlyrics.floating
 
 import android.content.ComponentName
 import android.service.notification.NotificationListenerService
@@ -16,7 +16,8 @@ internal fun FloatingLyricsService.shouldObserveSelectedMedia(): Boolean {
     return isWindowControllerReady() &&
         (windowController.isVisible ||
             ((activeAutoHideReasons.isNotEmpty() || autoHiddenForDisplayScope) &&
-                QuickFloatingStore.isDesiredVisible(this))) &&
+                QuickFloatingStore.isDesiredVisible(this)) ||
+            shouldObserveExternalSurfaces()) &&
         !selectedSourcePackage.isNullOrBlank()
 }
 
@@ -86,6 +87,7 @@ internal fun FloatingLyricsService.applyCurrentMediaInfo(media: CurrentMediaInfo
         com.andsi.airlyrics.settings.store.LyricsSettingsStore.isAutoSearchOnlineEnabled(this)
     if (samePlayback && !retryWithId) {
         renderer.tick()
+        pushLyricsToLockScreenWidget(renderer.lastRenderedText, media.title)
         scheduleNextLyricsSync()
         return true
     }
@@ -171,6 +173,7 @@ internal fun FloatingLyricsService.handleMediaSourceLost(sourcePackage: String) 
     )
     renderer.updatePlayback(positionMs = pausedPosition, isPlaying = false)
     renderer.refresh()
+    pushLyricsToLockScreenWidget(renderer.lastRenderedText, currentMedia.title)
     reevaluateAutoHide()
 }
 

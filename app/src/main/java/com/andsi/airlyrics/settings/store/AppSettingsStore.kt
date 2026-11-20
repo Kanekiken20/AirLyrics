@@ -1,4 +1,4 @@
-package com.andsi.airlyrics.settings.store
+﻿package com.andsi.airlyrics.settings.store
 
 import android.content.Context
 import com.andsi.airlyrics.core.prefs.prefs
@@ -50,19 +50,21 @@ object AppSettingsStore {
     }
 
     fun isSuppressLockScreenNotifications(context: Context): Boolean {
-        return store(context).getBoolean(KEY_SUPPRESS_LOCK_NOTIFS, true)
+        return store(context).getBoolean(KEY_SUPPRESS_LOCK_NOTIFS, false)
     }
 
     fun setSuppressLockScreenNotifications(context: Context, enabled: Boolean) {
         store(context).setBoolean(KEY_SUPPRESS_LOCK_NOTIFS, enabled)
     }
 
-    fun getFloatingCollapsedSide(context: Context): String {
-        return store(context).getString(KEY_FLOATING_COLLAPSED_SIDE, "NONE") ?: "NONE"
+    @Deprecated("Floating side-swipe docking overlay has been removed.")
+    fun getFloatingCollapsedSide(@Suppress("UNUSED_PARAMETER") context: Context): String {
+        return "NONE"
     }
 
-    fun setFloatingCollapsedSide(context: Context, side: String) {
-        store(context).setString(KEY_FLOATING_COLLAPSED_SIDE, side)
+    @Deprecated("Floating side-swipe docking overlay has been removed.")
+    fun setFloatingCollapsedSide(context: Context, @Suppress("UNUSED_PARAMETER") side: String) {
+        store(context).setString(KEY_FLOATING_COLLAPSED_SIDE, "NONE")
     }
 
     fun getFloatingYFraction(context: Context): Float {

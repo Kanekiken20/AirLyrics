@@ -1,4 +1,4 @@
-package com.andsi.airlyrics.floating
+﻿package com.andsi.airlyrics.floating
 
 import android.graphics.Color
 import android.os.SystemClock
@@ -32,6 +32,12 @@ internal enum class ParsedLyricsAvailability {
     AVAILABLE,
     EMPTY
 }
+
+internal data class LyricLineContext(
+    val previousLine: String = "",
+    val currentLine: String = "",
+    val nextLine: String = ""
+)
 
 /**
  * Maintains parsed lyric lines and renders the line matching the current playback position.
@@ -658,10 +664,10 @@ class FloatingLyricsRenderer(
     }
 
     private fun setTextImmediately(text: CharSequence) {
+        lastRenderedText = text.toString()
         val view = textViewProvider() ?: return
         resetTextAnimationState(view)
         view.text = credited(text)
-        lastRenderedText = text.toString()
         updateSpicyPlayback()
     }
 
@@ -754,10 +760,10 @@ class FloatingLyricsRenderer(
     }
 
     private fun prepareTextSwitchAnimation(text: CharSequence, textKey: String): TextView? {
+        lastRenderedText = textKey
         val view = textViewProvider() ?: return null
         cancelTextAnimation(view)
         view.text = credited(text)
-        lastRenderedText = textKey
         updateSpicyPlayback()
         return view
     }
@@ -826,6 +832,67 @@ class FloatingLyricsRenderer(
 
     fun getEstimatedPositionMs(): Long {
         return (getEstimatedPlaybackPositionMs() + lyricsOffsetMs).coerceAtLeast(0L)
+    }
+
+    /**
+     * Returns synchronized previous/current/next lyric lines independent of whether the
+     * floating overlay TextView is attached, feeding the Lock Screen Card and LockStar AOD Widget.
+     */
+    internal fun currentLineContext(): LyricLineContext {
+        val positionMs = getEstimatedPositionMs()
+        val contentMode = contentModeProvider()
+        val scriptPreference = scriptPreferenceProvider()
+
+        if (currentPlainLines.isNotEmpty()) {
+            val currentIndex = LrcParser.findCurrentIndex(currentPlainLines, positionMs)
+                ?: currentPlainLines.indexOfFirst { !it.isMetadata && (it.text.isNotBlank() || it.hasTranslation()) }
+                    .takeIf { it >= 0 }
+
+            if (currentIndex != null) {
+                fun formatLine(index: Int): String {
+                    val line = currentPlainLines.getOrNull(index) ?: return ""
+                    if (line.isMetadata) return ""
+                    val rendered = LyricsDisplayPolicy.render(
+                        contentMode = contentMode,
+                        original = line.text,
+                        translation = line.translation,
+                        scriptPreference = scriptPreference
+                    )
+                    return LyricsDisplayPolicy.join(rendered).trim()
+                }
+
+                val prevText = ((currentIndex - 1) downTo 0)
+                    .asSequence()
+                    .map(::formatLine)
+                    .firstOrNull { it.isNotBlank() }
+                    .orEmpty()
+                val curText = formatLine(currentIndex)
+                val nextText = ((currentIndex + 1) until currentPlainLines.size)
+                    .asSequence()
+                    .map(::formatLine)
+                    .firstOrNull { it.isNotBlank() }
+                    .orEmpty()
+
+                if (curText.isNotBlank() || nextText.isNotBlank()) {
+                    return LyricLineContext(
+                        previousLine = prevText,
+                        currentLine = curText,
+                        nextLine = nextText
+                    )
+                }
+            }
+        }
+
+        if (currentWordByWordLines.isNotEmpty()) {
+            val idx = findCurrentWordByWordIndex(positionMs) ?: 0
+            return LyricLineContext(
+                previousLine = currentWordByWordLines.getOrNull(idx - 1)?.text?.trim().orEmpty(),
+                currentLine = currentWordByWordLines.getOrNull(idx)?.text?.trim().orEmpty(),
+                nextLine = currentWordByWordLines.getOrNull(idx + 1)?.text?.trim().orEmpty()
+            )
+        }
+
+        return LyricLineContext(currentLine = lastRenderedText?.trim().orEmpty())
     }
 
     private fun getEstimatedPlaybackPositionMs(nowUptimeMs: Long = uptimeMillisProvider()): Long {
