@@ -1,4 +1,4 @@
-<resources>
+﻿<resources>
     <string name="app_name">AirLyrics</string>
     <string name="accessibility_lockscreen_desc">Allows AirLyrics to render a smooth lyrics card directly on your Samsung lock screen without extra screens.</string>
     <string name="widget_panel_name">AirLyrics Panel</string>
@@ -166,6 +166,9 @@
     <string name="ui_sans_serif">Sans serif</string>
     <string name="ui_serif">Serif</string>
     <string name="ui_system_default_font">System default</string>
+    <string name="ui_font_preset_default">Default</string>
+    <string name="ui_font_preset_spotify">Spotify</string>
+    <string name="ui_font_preset_apple_music">Apple Music</string>
     <string name="ui_format_looks_good">Format looks good</string>
     <string name="ui_give_it_a_star">Give it a star!</string>
     <string name="ui_green">Green</string>

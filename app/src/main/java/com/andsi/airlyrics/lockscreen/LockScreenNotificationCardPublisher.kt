@@ -27,7 +27,8 @@ data class LockScreenLyricsSnapshot(
     val nextLine: String = "",
     val isPlaying: Boolean = true,
     val positionMs: Long = 0L,
-    val durationMs: Long = 0L
+    val durationMs: Long = 0L,
+    val albumArtAccentColor: Int? = null
 ) {
     internal fun quantizedProgressBucket(): Int {
         if (durationMs <= 0L) return -1
@@ -93,8 +94,8 @@ class LockScreenNotificationCardPublisher(
             channelId = CHANNEL_ID,
             notificationId = NOTIFICATION_ID,
             groupKey = STANDALONE_GROUP_KEY,
-            category = NotificationCompat.CATEGORY_TRANSPORT,
-            priority = NotificationCompat.PRIORITY_MAX,
+            category = NotificationCompat.CATEGORY_STATUS,
+            priority = NotificationCompat.PRIORITY_DEFAULT,
             visibility = NotificationCompat.VISIBILITY_PUBLIC,
             isGroupSummary = false,
             usesDecoratedCustomViewStyle = USE_DECORATED_STYLE
@@ -188,9 +189,9 @@ class LockScreenNotificationCardPublisher(
             .setCustomContentView(defaultViews)
             .setCustomBigContentView(expandedViews)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setSilent(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)

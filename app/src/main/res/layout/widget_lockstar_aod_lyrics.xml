@@ -4,19 +4,34 @@
     android:id="@+id/aod_widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="@android:color/transparent">
 
+    <!-- Lock Screen custom-font bitmap layer (never used on AOD; hidden when !isInteractive) -->
+    <ImageView
+        android:id="@+id/iv_widget_styled_lyrics"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@null"
+        android:paddingStart="10dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="8dp"
+        android:scaleType="fitCenter"
+        android:visibility="gone" />
+
+    <!-- Native high-contrast TextView layer (always active on AOD and Default font Lock Screen) -->
     <LinearLayout
         android:id="@+id/aod_widget_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#000000"
+        android:background="@android:color/transparent"
         android:gravity="center"
         android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingTop="14dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="14dp">
+        android:paddingStart="14dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="10dp">
+
         <TextView
             android:id="@+id/tv_aod_track_meta"
             android:layout_width="match_parent"
@@ -27,51 +42,58 @@
             android:includeFontPadding="false"
             android:letterSpacing="0.03"
             android:maxLines="1"
-            android:textColor="#88FFFFFF"
+            android:text="@string/app_name"
+            android:textColor="#FFD0D0D0"
             android:textSize="12sp"
             tools:text="Midnight City • M83" />
+
         <TextView
             android:id="@+id/tv_aod_lyric_prev"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:ellipsize="end"
             android:fontFamily="sans-serif"
             android:gravity="center"
             android:includeFontPadding="false"
             android:lineSpacingMultiplier="1.12"
-            android:maxLines="2"
-            android:textColor="#55FFFFFF"
-            android:textSize="14sp"
+            android:maxLines="1"
+            android:textColor="#FFB8B8B8"
+            android:textSize="13sp"
+            android:visibility="gone"
             tools:text="Waiting in a car" />
+
         <TextView
             android:id="@+id/tv_aod_lyric_current"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:ellipsize="end"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:includeFontPadding="false"
-            android:lineSpacingMultiplier="1.18"
-            android:maxLines="4"
-            android:textColor="#F5FFFFFF"
-            android:textSize="22sp"
+            android:lineSpacingMultiplier="1.16"
+            android:maxLines="3"
+            android:text="♪ AirLyrics"
+            android:textColor="#FFFFFFFF"
+            android:textSize="20sp"
             android:textStyle="bold"
             tools:text="Waiting for a ride in the dark" />
+
         <TextView
             android:id="@+id/tv_aod_lyric_next"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:ellipsize="end"
             android:fontFamily="sans-serif"
             android:gravity="center"
             android:includeFontPadding="false"
             android:lineSpacingMultiplier="1.12"
             android:maxLines="2"
-            android:textColor="#7AFFFFFF"
-            android:textSize="14.5sp"
+            android:textColor="#FFE0E0E0"
+            android:textSize="14sp"
+            android:visibility="gone"
             tools:text="The night city grows" />
     </LinearLayout>
 </FrameLayout>

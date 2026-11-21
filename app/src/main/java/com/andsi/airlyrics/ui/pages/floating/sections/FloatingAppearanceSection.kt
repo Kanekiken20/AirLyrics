@@ -1,5 +1,6 @@
-package com.andsi.airlyrics.ui.pages.floating.sections
+﻿package com.andsi.airlyrics.ui.pages.floating.sections
 
+import android.content.Intent
 import android.graphics.Color
 import com.andsi.airlyrics.ui.state.FloatingPanelId
 import android.widget.LinearLayout
@@ -8,6 +9,10 @@ import com.andsi.airlyrics.ui.components.actionButton
 import com.andsi.airlyrics.ui.components.normalText
 import com.andsi.airlyrics.core.model.FloatingLyricsFontFamily
 import com.andsi.airlyrics.core.model.FloatingLyricsFontWeight
+import com.andsi.airlyrics.lockscreen.AirLyricsAodWidgetProvider
+import com.andsi.airlyrics.lockscreen.AirLyricsDockWidgetProvider
+import com.andsi.airlyrics.settings.store.AppSettingsStore
+import com.andsi.airlyrics.settings.store.FloatingLyricsFontStore
 import com.andsi.airlyrics.ui.model.KeyedOptionItem
 import com.andsi.airlyrics.ui.pages.floating.FloatingPageScope
 import com.andsi.airlyrics.ui.pages.floating.alphaToOpacityPercent
@@ -171,7 +176,11 @@ internal fun FloatingPageScope.addAppearanceSection(list: LinearLayout) = with(h
             trackedFloatingTile(
                 id = FloatingPanelId.FONT,
                 title = getString(R.string.ui_font),
-                subtitle = fontFamilySubtitle(),
+                subtitle = when (AppSettingsStore.getLyricsFontPreset(host)) {
+                    AppSettingsStore.FONT_PRESET_SPOTIFY -> getString(R.string.ui_font_preset_spotify)
+                    AppSettingsStore.FONT_PRESET_APPLE_MUSIC -> getString(R.string.ui_font_preset_apple_music)
+                    else -> fontFamilySubtitle()
+                },
                 iconRes = R.drawable.ic_air_font,
                 onClick = { tile ->
                     openPanel(
@@ -179,22 +188,76 @@ internal fun FloatingPageScope.addAppearanceSection(list: LinearLayout) = with(h
                         getString(R.string.ui_font),
                         ""
                     ) {
-                        val availableFonts = FloatingLyricsFontFamily.entries.filter { fontFamily ->
-                            fontFamily != FloatingLyricsFontFamily.CUSTOM || hasFloatingCustomFont()
+                        val currentPreset = AppSettingsStore.getLyricsFontPreset(host)
+                        fun applyFontSelection(preset: String, family: FloatingLyricsFontFamily) {
+                            AppSettingsStore.setLyricsFontPreset(host, preset)
+                            FloatingLyricsFontStore.evictCache()
+                            applyFloatingStyle(style().copy(fontFamily = family))
+                            refreshFloatingPreview()
+                            AirLyricsAodWidgetProvider.pushLatest(host, force = true)
+                            AirLyricsDockWidgetProvider.pushLatest(host, force = true)
+                            host.sendBroadcast(
+                                Intent(AppSettingsStore.ACTION_STYLE_PREF_CHANGED)
+                                    .setPackage(host.packageName)
+                            )
                         }
-                        addView(liveOptionGrid(
-                            availableFonts.map { fontFamily ->
-                                KeyedOptionItem(
+
+                        val options = mutableListOf(
+                            KeyedOptionItem(
+                                key = "preset_default",
+                                title = getString(R.string.ui_font_preset_default),
+                                selected = currentPreset == AppSettingsStore.FONT_PRESET_DEFAULT &&
+                                    style().fontFamily == FloatingLyricsFontFamily.SYSTEM_DEFAULT,
+                                action = {
+                                    applyFontSelection(
+                                        AppSettingsStore.FONT_PRESET_DEFAULT,
+                                        FloatingLyricsFontFamily.SYSTEM_DEFAULT
+                                    )
+                                }
+                            ),
+                            KeyedOptionItem(
+                                key = "preset_spotify",
+                                title = getString(R.string.ui_font_preset_spotify),
+                                selected = currentPreset == AppSettingsStore.FONT_PRESET_SPOTIFY,
+                                action = {
+                                    applyFontSelection(
+                                        AppSettingsStore.FONT_PRESET_SPOTIFY,
+                                        FloatingLyricsFontFamily.SYSTEM_DEFAULT
+                                    )
+                                }
+                            ),
+                            KeyedOptionItem(
+                                key = "preset_apple_music",
+                                title = getString(R.string.ui_font_preset_apple_music),
+                                selected = currentPreset == AppSettingsStore.FONT_PRESET_APPLE_MUSIC,
+                                action = {
+                                    applyFontSelection(
+                                        AppSettingsStore.FONT_PRESET_APPLE_MUSIC,
+                                        FloatingLyricsFontFamily.SYSTEM_DEFAULT
+                                    )
+                                }
+                            )
+                        )
+
+                        FloatingLyricsFontFamily.entries
+                            .filter { it != FloatingLyricsFontFamily.SYSTEM_DEFAULT }
+                            .filter { it != FloatingLyricsFontFamily.CUSTOM || hasFloatingCustomFont() }
+                            .forEach { fontFamily ->
+                                options += KeyedOptionItem(
                                     key = fontFamily.key,
                                     title = localizedFontFamilyTitle(fontFamily),
-                                    selected = fontFamily == style().fontFamily,
+                                    selected = currentPreset == AppSettingsStore.FONT_PRESET_DEFAULT &&
+                                        fontFamily == style().fontFamily,
                                     action = {
-                                        applyFloatingStyle(style().copy(fontFamily = fontFamily))
-                                        refreshFloatingPreview()
+                                        applyFontSelection(
+                                            AppSettingsStore.FONT_PRESET_DEFAULT,
+                                            fontFamily
+                                        )
                                     }
                                 )
                             }
-                        ))
+
+                        addView(liveOptionGrid(options))
                         addView(actionButton(
                             host,
                             getString(

@@ -4,6 +4,12 @@ import com.andsi.airlyrics.lyrics.LyricsSearchCoordinator
 import com.andsi.airlyrics.core.model.SongIdentity
 import android.app.Service
 import android.app.KeyguardManager
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.graphics.Bitmap
+import android.media.MediaMetadata
+import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
 import android.os.PowerManager
 import com.andsi.airlyrics.lockscreen.AirLyricsAodWidgetProvider
 import com.andsi.airlyrics.lockscreen.AirLyricsDockWidgetProvider
@@ -183,17 +189,45 @@ open class FloatingLyricsService : Service() {
     private var localizedContentLanguageTags: String? = null
 
     private var isScreenOnWidgetReceiverRegistered = false
+    private var cachedAccentTrackKey: String? = null
+    private var cachedAccentColor: Int? = null
     private lateinit var lockScreenPublisher: LockScreenNotificationCardPublisher
+
+    private val aodSettleRefreshRunnable = Runnable {
+        if (!isDisplayInteractive()) {
+            updateAodAndLockScreen(isInteractive = false, isLocked = true, forceImmediate = true)
+        }
+    }
+
+    private val stylePrefChangedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (isWindowControllerReady()) {
+                windowController.applyStyle()
+            }
+            val pm = getSystemService(PowerManager::class.java)
+            val km = getSystemService(KeyguardManager::class.java)
+            updateAodAndLockScreen(
+                isInteractive = pm?.isInteractive == true,
+                isLocked = km?.isKeyguardLocked == true,
+                forceImmediate = true
+            )
+        }
+    }
 
     internal fun isDisplayInteractive(): Boolean {
         return getSystemService(PowerManager::class.java)?.isInteractive == true
     }
 
     internal fun shouldObserveExternalSurfaces(): Boolean {
-        return AppSettingsStore.isLockScreenCardEnabled(this) ||
-            (AppSettingsStore.isAodLyricsEnabled(this) &&
-                (AirLyricsAodWidgetProvider.hasActiveWidgets(this) ||
-                    AirLyricsDockWidgetProvider.hasActiveWidgets(this)))
+        if (!AppSettingsStore.isAodLyricsEnabled(this)) return false
+        val hasFixedPanel = runCatching {
+            AppWidgetManager.getInstance(this)
+                .getAppWidgetIds(ComponentName(this, FixedLyricsPanelProvider::class.java))
+                ?.isNotEmpty() == true
+        }.getOrDefault(false)
+        return AirLyricsAodWidgetProvider.hasActiveWidgets(this) ||
+            AirLyricsDockWidgetProvider.hasActiveWidgets(this) ||
+            hasFixedPanel
     }
 
     internal fun shouldSyncExternalSurfaces(): Boolean {
@@ -206,11 +240,15 @@ open class FloatingLyricsService : Service() {
 
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
+                    syncHandler.removeCallbacks(aodSettleRefreshRunnable)
                     updateAodAndLockScreen(isInteractive = false, isLocked = true, forceImmediate = true)
+                    // Re-push once after One UI / LockStar finishes attaching its AOD host surface.
+                    syncHandler.postDelayed(aodSettleRefreshRunnable, 450L)
                     scheduleNextLyricsSync()
                 }
 
                 Intent.ACTION_SCREEN_ON -> {
+                    syncHandler.removeCallbacks(aodSettleRefreshRunnable)
                     val km = ctx.getSystemService(KeyguardManager::class.java)
                     val isLocked = km != null && km.isKeyguardLocked
                     updateAodAndLockScreen(isInteractive = true, isLocked = isLocked, forceImmediate = true)
@@ -219,6 +257,7 @@ open class FloatingLyricsService : Service() {
                 }
 
                 Intent.ACTION_USER_PRESENT -> {
+                    syncHandler.removeCallbacks(aodSettleRefreshRunnable)
                     updateAodAndLockScreen(isInteractive = true, isLocked = false, forceImmediate = true)
                     scheduleNextLyricsSync()
                     FixedLyricsPanelProvider.pushLatest(this@FloatingLyricsService, force = true)
@@ -258,10 +297,10 @@ open class FloatingLyricsService : Service() {
         forceImmediate: Boolean = false
     ) {
         val isAodWidgetEnabled = AppSettingsStore.isAodLyricsEnabled(this)
-        val isLockCardEnabled = AppSettingsStore.isLockScreenCardEnabled(this)
         val isPlaying = currentMedia.isPlaying && !currentMedia.isEmpty
         val lineContext = renderer.currentLineContext()
         val resolvedCurrent = lineContext.currentLine.ifBlank { renderer.lastRenderedText.orEmpty() }
+        val accentColor = if (!currentMedia.isEmpty) resolveAlbumArtAccentColor() else null
 
         val snapshot = LockScreenLyricsSnapshot(
             trackTitle = currentMedia.title,
@@ -271,21 +310,15 @@ open class FloatingLyricsService : Service() {
             nextLine = lineContext.nextLine,
             isPlaying = isPlaying,
             positionMs = renderer.getEstimatedPositionMs(),
-            durationMs = currentMedia.durationMs
+            durationMs = currentMedia.durationMs,
+            albumArtAccentColor = accentColor
         )
 
-        // 1. Standalone One UI Lock Screen Notification Card (no native AOD media hijacking)
-        val shouldShowLockCard = (isLocked || !isInteractive) &&
-            isLockCardEnabled &&
-            isPlaying &&
-            (snapshot.currentLine.isNotBlank() || snapshot.trackTitle.isNotBlank())
-        if (shouldShowLockCard) {
-            lockScreenPublisher.publish(snapshot, force = forceImmediate)
-        } else {
-            lockScreenPublisher.clear()
-        }
+        // Never publish a competing lock-screen/AOD notification card; let Samsung's stock
+        // Lock Screen & AOD Media Player / Now Bar operate natively without interference.
+        lockScreenPublisher.clear()
 
-        // 2. Dedicated LockStar AMOLED AOD Widget (pure #000000 background, battery-conscious updates)
+        // Drive Lock Screen and LockStar AOD exclusively through dedicated AppWidgets.
         if (isAodWidgetEnabled && !currentMedia.isEmpty) {
             AirLyricsAodWidgetProvider.updateAllWidgets(
                 context = this,
@@ -302,6 +335,93 @@ open class FloatingLyricsService : Service() {
         } else {
             AirLyricsAodWidgetProvider.clearWidgets(this)
             AirLyricsDockWidgetProvider.clearWidgets(this)
+        }
+    }
+
+    private fun resolveAlbumArtAccentColor(): Int? {
+        val trackKey = "${currentMedia.title}|${currentMedia.artist}|${currentMedia.album}"
+        if (trackKey == cachedAccentTrackKey && cachedAccentColor != null) {
+            return cachedAccentColor
+        }
+        val extracted = extractVibrantArtworkColor()
+        cachedAccentTrackKey = trackKey
+        cachedAccentColor = extracted
+        return extracted
+    }
+
+    private fun extractVibrantArtworkColor(): Int? {
+        val sessionManager = getSystemService(MediaSessionManager::class.java) ?: return null
+        val listenerComponent = ComponentName(
+            packageName,
+            "com.andsi.airlyrics.media.MediaNotificationListenerService"
+        )
+        val controllers = runCatching { sessionManager.getActiveSessions(listenerComponent) }
+            .getOrNull()
+            .orEmpty()
+        if (controllers.isEmpty()) return null
+
+        val selected = selectedSourcePackage?.let { pkg ->
+            controllers.firstOrNull { it.packageName == pkg }
+        } ?: controllers.firstOrNull {
+            it.playbackState?.state == PlaybackState.STATE_PLAYING
+        } ?: controllers.firstOrNull()
+
+        val metadata = selected?.metadata ?: return null
+        val art = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+            ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
+            ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+            ?: return null
+
+        val scaled = if (art.width > 24 || art.height > 24) {
+            runCatching { Bitmap.createScaledBitmap(art, 24, 24, true) }.getOrNull() ?: art
+        } else {
+            art
+        }
+
+        return try {
+            val bucketWeights = FloatArray(18)
+            val bucketHueSum = FloatArray(18)
+            val bucketSatSum = FloatArray(18)
+            val bucketValSum = FloatArray(18)
+            val hsv = FloatArray(3)
+            val w = scaled.width
+            val h = scaled.height
+
+            for (y in 0 until h) {
+                for (x in 0 until w) {
+                    val pixel = scaled.getPixel(x, y)
+                    if (Color.alpha(pixel) < 128) continue
+                    Color.colorToHSV(pixel, hsv)
+                    val sat = hsv[1]
+                    val value = hsv[2]
+                    if (sat < 0.16f || value < 0.18f) continue
+                    val bucket = ((hsv[0] / 20f).toInt()).coerceIn(0, 17)
+                    val weight = sat * (0.35f + 0.65f * value)
+                    bucketWeights[bucket] += weight
+                    bucketHueSum[bucket] += hsv[0] * weight
+                    bucketSatSum[bucket] += sat * weight
+                    bucketValSum[bucket] += value * weight
+                }
+            }
+
+            var bestBucket = -1
+            var bestWeight = 0f
+            for (i in bucketWeights.indices) {
+                if (bucketWeights[i] > bestWeight) {
+                    bestWeight = bucketWeights[i]
+                    bestBucket = i
+                }
+            }
+            if (bestBucket < 0 || bestWeight <= 0f) return Color.WHITE
+
+            hsv[0] = (bucketHueSum[bestBucket] / bestWeight).coerceIn(0f, 360f)
+            hsv[1] = (bucketSatSum[bestBucket] / bestWeight).coerceIn(0.28f, 0.72f)
+            hsv[2] = (bucketValSum[bestBucket] / bestWeight).coerceAtLeast(0.92f)
+            Color.HSVToColor(255, hsv)
+        } finally {
+            if (scaled !== art && !scaled.isRecycled) {
+                scaled.recycle()
+            }
         }
     }
 
@@ -375,6 +495,12 @@ open class FloatingLyricsService : Service() {
             LanguageChangedBroadcast.filter(),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
+        ContextCompat.registerReceiver(
+            this,
+            stylePrefChangedReceiver,
+            IntentFilter(AppSettingsStore.ACTION_STYLE_PREF_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -432,6 +558,7 @@ open class FloatingLyricsService : Service() {
         renderer.clear()
         cancelPendingAutoHide()
         syncHandler.removeCallbacks(mediaRestoreRunnable)
+        syncHandler.removeCallbacks(aodSettleRefreshRunnable)
         stopSelectedMediaObservation()
         displayScopeMonitor?.close()
         displayScopeMonitor = null
@@ -440,6 +567,7 @@ open class FloatingLyricsService : Service() {
         runCatching { unregisterReceiver(mediaReceiver) }
         runCatching { unregisterReceiver(lyricsChangedReceiver) }
         runCatching { unregisterReceiver(languageChangedReceiver) }
+        runCatching { unregisterReceiver(stylePrefChangedReceiver) }
         unregisterScreenOnWidgetRefresh()
         lockScreenPublisher.clear()
         AirLyricsAodWidgetProvider.clearWidgets(this)

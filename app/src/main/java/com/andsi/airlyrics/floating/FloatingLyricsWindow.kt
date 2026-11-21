@@ -81,6 +81,12 @@ class FloatingLyricsWindow(
     private var activeSpringX: SpringAnimation? = null
     private var activeScaleXSpring: SpringAnimation? = null
     private var activeScaleYSpring: SpringAnimation? = null
+    private var activeDockScaleXSpring: SpringAnimation? = null
+    private var activeDockScaleYSpring: SpringAnimation? = null
+    private var insetLeft = 0
+    private var insetTop = 0
+    private var animatingSpring = false
+    private var edgeHapticFired = false
     private var dragging = false
     private var remapPending = false
     private val refreshLayout = Runnable {
@@ -95,6 +101,10 @@ class FloatingLyricsWindow(
     fun onConfigurationChanged() {
         gestureActive = false
         scheduleLayout(remap = true)
+        if (currentDockSide != DockSide.NONE && dockTabView != null) {
+            val savedY = (displayHeight() * AppSettingsStore.getFloatingYFraction(context)).roundToInt()
+            showDockTab(currentDockSide, savedY)
+        }
     }
 
     private fun scheduleLayout(remap: Boolean = false) {
@@ -133,6 +143,7 @@ class FloatingLyricsWindow(
             includeFontPadding = false
         }
 
+        @Suppress("RtlHardcoded")
         val layoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -140,10 +151,9 @@ class FloatingLyricsWindow(
             windowFlagsForCurrentBehavior(),
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.START
+            gravity = Gravity.TOP or Gravity.LEFT
             if (Build.VERSION.SDK_INT >= 30) {
-                setFitInsetsTypes(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
-                setFitInsetsIgnoringVisibility(true)
+                setFitInsetsTypes(0)
             }
         }
 
@@ -173,7 +183,8 @@ class FloatingLyricsWindow(
             view.requestApplyInsets()
             if (currentDockSide != DockSide.NONE) {
                 view.visibility = View.GONE
-                showDockTab(currentDockSide, layoutParams.y)
+                val savedTabY = (displayHeight() * AppSettingsStore.getFloatingYFraction(context)).roundToInt()
+                showDockTab(currentDockSide, savedTabY)
             } else {
                 playPuffyPopIn(view)
             }
@@ -260,15 +271,16 @@ class FloatingLyricsWindow(
                 cancelActiveSprings()
                 gestureActive = true
                 dragging = false
-                startX = p.x
-                startY = p.y
+                edgeHapticFired = false
+                startX = p.x - insetLeft
+                startY = p.y - insetTop
                 touchStartX = event.rawX
                 touchStartY = event.rawY
                 velocityTracker?.recycle()
                 velocityTracker = VelocityTracker.obtain().apply { addMovement(event) }
                 holdGesture.onTouchDown(event, enabled = !isLocked)
                 if (!isLocked) {
-                    view.animate().scaleX(0.97f).scaleY(0.97f).setDuration(90L).start()
+                    view.animate().scaleX(0.95f).scaleY(0.95f).setDuration(80L).start()
                 }
                 true
             }
@@ -282,22 +294,51 @@ class FloatingLyricsWindow(
                     if (!dragging && isClick(event)) return true
                     dragging = true
                     val bounds = geometry ?: return true
-                    val dx = (event.rawX - touchStartX).toInt() *
-                        if (view.layoutDirection == View.LAYOUT_DIRECTION_RTL) -1 else 1
-                    val maxOverhang = (p.width * 0.55f).roundToInt()
-                    val candidateX = (startX + dx).coerceIn(-maxOverhang, bounds.travelX + maxOverhang)
-                    p.x = candidateX
-                    p.y = (startY + (event.rawY - touchStartY).toInt()).coerceIn(0, bounds.travelY)
+                    val dx = (event.rawX - touchStartX).toInt()
+                    val rawLocalX = startX + dx
+                    val maxOverhang = (p.width * 0.58f).roundToInt().coerceAtLeast(dp(48))
 
-                    // Subtle puffy squash feedback as the user pushes the card past a screen edge
+                    // Rubber-band resistance when pushing past screen edges
+                    val candidateLocalX = when {
+                        rawLocalX < 0 -> {
+                            val resisted = (rawLocalX * 0.72f).roundToInt()
+                            resisted.coerceAtLeast(-maxOverhang)
+                        }
+                        rawLocalX > bounds.travelX -> {
+                            val over = rawLocalX - bounds.travelX
+                            val resisted = bounds.travelX + (over * 0.72f).roundToInt()
+                            resisted.coerceAtMost(bounds.travelX + maxOverhang)
+                        }
+                        else -> rawLocalX
+                    }
+                    val candidateLocalY = (startY + (event.rawY - touchStartY).toInt())
+                        .coerceIn(0, bounds.travelY)
+
+                    p.x = insetLeft + candidateLocalX
+                    p.y = insetTop + candidateLocalY
+
+                    // Playful squash-and-stretch feedback against left/right boundaries
                     val overhangRatio = when {
-                        candidateX < 0 -> (-candidateX.toFloat() / maxOverhang.coerceAtLeast(1)).coerceIn(0f, 1f)
-                        candidateX > bounds.travelX -> ((candidateX - bounds.travelX).toFloat() / maxOverhang.coerceAtLeast(1)).coerceIn(0f, 1f)
+                        candidateLocalX < 0 -> (-candidateLocalX.toFloat() / maxOverhang.coerceAtLeast(1)).coerceIn(0f, 1f)
+                        candidateLocalX > bounds.travelX -> ((candidateLocalX - bounds.travelX).toFloat() / maxOverhang.coerceAtLeast(1)).coerceIn(0f, 1f)
                         else -> 0f
                     }
-                    view.scaleX = 1f - 0.08f * overhangRatio
-                    view.scaleY = 1f + 0.04f * overhangRatio
-                    view.alpha = 1f - 0.22f * overhangRatio
+                    if (overhangRatio > 0f) {
+                        view.animate().cancel()
+                        view.scaleX = 1f - 0.14f * overhangRatio
+                        view.scaleY = 1f + 0.09f * overhangRatio
+                        view.alpha = 1f - 0.28f * overhangRatio
+                        if (!edgeHapticFired && overhangRatio >= 0.42f) {
+                            edgeHapticFired = true
+                            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        }
+                    } else {
+                        edgeHapticFired = false
+                        view.animate().cancel()
+                        view.scaleX = 1.02f
+                        view.scaleY = 0.98f
+                        view.alpha = 1f
+                    }
 
                     runCatching { windowManager.updateViewLayout(view, p) }
                         .onFailure { hideAfterFailure() }
@@ -342,10 +383,12 @@ class FloatingLyricsWindow(
                 }
 
                 if (!isLocked && dragging) {
-                    val screenW = geometry?.availableWidth ?: windowContext.resources.displayMetrics.widthPixels
+                    val bounds = geometry
+                    val screenW = bounds?.availableWidth ?: displayWidth()
+                    val currentLocalX = p.x - insetLeft
                     val collapse = FloatingGesturePhysics.shouldCollapseOnRelease(
                         velocityX = vx,
-                        cardX = p.x,
+                        cardX = currentLocalX,
                         cardWidth = p.width,
                         screenWidth = screenW,
                         edgeThresholdPx = dp(FloatingGesturePhysics.EDGE_PROXIMITY_DP)
@@ -355,12 +398,12 @@ class FloatingLyricsWindow(
                         FloatingGesturePhysics.CollapseEdge.RIGHT -> collapseToSide(DockSide.RIGHT, vx)
                         null -> {
                             playPuffyScaleRestore(view)
-                            val bounds = geometry
                             if (bounds != null) {
-                                val targetX = p.x.coerceIn(0, bounds.travelX)
-                                p.y = p.y.coerceIn(0, bounds.travelY)
-                                if (p.x != targetX) {
-                                    springSettleX(view, p, targetX.toFloat(), vx * 0.25f)
+                                val targetLocalX = currentLocalX.coerceIn(0, bounds.travelX)
+                                p.y = insetTop + (p.y - insetTop).coerceIn(0, bounds.travelY)
+                                val targetWindowX = insetLeft + targetLocalX
+                                if (p.x != targetWindowX) {
+                                    springSettleX(view, p, targetWindowX.toFloat(), vx * 0.35f)
                                 } else {
                                     saveDraggedPosition(p)
                                 }
@@ -385,12 +428,17 @@ class FloatingLyricsWindow(
     }
 
     private fun cancelActiveSprings() {
+        animatingSpring = false
         activeSpringX?.cancel()
         activeSpringX = null
         activeScaleXSpring?.cancel()
         activeScaleXSpring = null
         activeScaleYSpring?.cancel()
         activeScaleYSpring = null
+        activeDockScaleXSpring?.cancel()
+        activeDockScaleXSpring = null
+        activeDockScaleYSpring?.cancel()
+        activeDockScaleYSpring = null
     }
 
     private fun playPuffyPopIn(view: View) {
@@ -434,6 +482,7 @@ class FloatingLyricsWindow(
 
     private fun springSettleX(view: View, p: WindowManager.LayoutParams, targetX: Float, startVelocity: Float) {
         activeSpringX?.cancel()
+        animatingSpring = true
         activeSpringX = SpringAnimation(FloatValueHolder(p.x.toFloat())).apply {
             setStartVelocity(startVelocity)
             spring = SpringForce(targetX).apply {
@@ -446,6 +495,7 @@ class FloatingLyricsWindow(
                 runCatching { windowManager.updateViewLayout(view, p) }
             }
             addEndListener { _, canceled, _, _ ->
+                animatingSpring = false
                 if (!canceled && lyricsView != null) {
                     saveDraggedPosition(p)
                 }
@@ -457,33 +507,52 @@ class FloatingLyricsWindow(
     private fun collapseToSide(side: DockSide, initialVelocityX: Float) {
         val view = lyricsView ?: return
         val p = params ?: return
-        val screenW = geometry?.availableWidth ?: windowContext.resources.displayMetrics.widthPixels
+        val fullW = displayWidth()
         val startX = p.x.toFloat()
-        val targetX = if (side == DockSide.LEFT) -p.width.toFloat() else screenW.toFloat()
+        val targetX = if (side == DockSide.LEFT) -p.width.toFloat() else fullW.toFloat()
 
         view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
         view.animate()
             .alpha(0f)
-            .scaleX(0.82f)
-            .scaleY(0.90f)
-            .setDuration(210L)
+            .scaleX(0.76f)
+            .scaleY(1.06f)
+            .setDuration(190L)
             .setInterpolator(DecelerateInterpolator())
             .start()
 
         activeSpringX?.cancel()
+        animatingSpring = true
+        var completed = false
+        val flingBoost = if (side == DockSide.LEFT) {
+            initialVelocityX.coerceAtMost(-700f) * 0.75f
+        } else {
+            initialVelocityX.coerceAtLeast(700f) * 0.75f
+        }
         activeSpringX = SpringAnimation(FloatValueHolder(startX)).apply {
-            setStartVelocity(initialVelocityX * 0.65f)
+            setStartVelocity(flingBoost)
             spring = SpringForce(targetX).apply {
                 dampingRatio = FloatingGesturePhysics.PUFFY_DOCK_DAMPING
                 stiffness = FloatingGesturePhysics.PUFFY_DOCK_STIFFNESS
             }
-            addUpdateListener { _, value, _ ->
+            addUpdateListener { anim, value, _ ->
                 if (!view.isAttachedToWindow) return@addUpdateListener
                 p.x = value.roundToInt()
                 runCatching { windowManager.updateViewLayout(view, p) }
+                val clearedEdge = if (side == DockSide.LEFT) {
+                    value <= -p.width * 0.82f
+                } else {
+                    value >= fullW - p.width * 0.18f
+                }
+                if (!completed && clearedEdge) {
+                    completed = true
+                    anim.cancel()
+                    finishCollapse(side, p.y)
+                }
             }
             addEndListener { _, canceled, _, _ ->
-                if (!canceled && lyricsView != null) {
+                animatingSpring = false
+                if (!completed && !canceled && lyricsView != null) {
+                    completed = true
                     finishCollapse(side, p.y)
                 }
             }
@@ -492,29 +561,33 @@ class FloatingLyricsWindow(
     }
 
     private fun finishCollapse(side: DockSide, yPx: Int) {
+        animatingSpring = false
         val view = lyricsView ?: return
         view.visibility = View.GONE
         view.alpha = 1f
         view.scaleX = 1f
         view.scaleY = 1f
         currentDockSide = side
+        val screenH = displayHeight().coerceAtLeast(1)
+        AppSettingsStore.setFloatingYFraction(context, yPx.toFloat() / screenH.toFloat())
         AppSettingsStore.setFloatingCollapsedSide(context, side.name)
         showDockTab(side, yPx)
     }
 
+    @Suppress("RtlHardcoded")
     private fun showDockTab(side: DockSide, yPx: Int) {
         removeDockTab()
-        val screenW = windowContext.resources.displayMetrics.widthPixels
-        val screenH = windowContext.resources.displayMetrics.heightPixels
-        val pillWidth = dp(38)
-        val pillHeight = dp(76)
+        val screenW = displayWidth()
+        val screenH = displayHeight()
+        val pillWidth = dp(40)
+        val pillHeight = dp(78)
         val outerR = dp(26).toFloat()
-        val edgeR = dp(10).toFloat()
+        val edgeR = dp(8).toFloat()
 
         val pillBackground = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(Color.parseColor("#EB181D2B"))
-            setStroke(dp(1) + 1, Color.parseColor("#5296B8FF"))
+            setStroke(dp(1) + 1, Color.parseColor("#6696B8FF"))
             cornerRadii = if (side == DockSide.LEFT) {
                 floatArrayOf(edgeR, edgeR, outerR, outerR, outerR, outerR, edgeR, edgeR)
             } else {
@@ -524,16 +597,16 @@ class FloatingLyricsWindow(
 
         val tab = FrameLayout(windowContext).apply {
             background = pillBackground
-            elevation = dp(10).toFloat()
-            scaleX = 0.68f
-            scaleY = 0.72f
+            elevation = dp(12).toFloat()
+            scaleX = 0.55f
+            scaleY = 0.55f
             alpha = 0f
         }
 
         val label = TextView(windowContext).apply {
             text = if (side == DockSide.LEFT) "\u266A\n\u203A" else "\u266A\n\u2039"
-            setTextColor(Color.parseColor("#F0DCE6FF"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setTextColor(Color.parseColor("#F5E2ECFF"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             setLineSpacing(0f, 0.85f)
             includeFontPadding = false
@@ -546,9 +619,10 @@ class FloatingLyricsWindow(
         tab.addView(label)
 
         val insetEdge = dp(2)
-        val targetX = if (side == DockSide.LEFT) insetEdge else screenW - pillWidth - insetEdge
-        val maxTargetY = (screenH - pillHeight - dp(32)).coerceAtLeast(dp(32))
-        val clampedY = yPx.coerceIn(dp(32), maxTargetY)
+        val targetX = if (side == DockSide.LEFT) insetEdge else (screenW - pillWidth - insetEdge).coerceAtLeast(0)
+        val minY = (insetTop + dp(24)).coerceAtLeast(dp(32))
+        val maxTargetY = (screenH - pillHeight - dp(40)).coerceAtLeast(minY)
+        val clampedY = yPx.coerceIn(minY, maxTargetY)
 
         val p = WindowManager.LayoutParams(
             pillWidth,
@@ -556,10 +630,14 @@ class FloatingLyricsWindow(
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
                 WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.START
+            gravity = Gravity.TOP or Gravity.LEFT
+            if (Build.VERSION.SDK_INT >= 30) {
+                setFitInsetsTypes(0)
+            }
             x = targetX
             y = clampedY
         }
@@ -576,13 +654,13 @@ class FloatingLyricsWindow(
                     downY = event.rawY
                     startTabY = p.y
                     tabDragging = false
-                    v.animate().scaleX(0.90f).scaleY(1.06f).setDuration(90L).start()
+                    v.animate().scaleX(0.88f).scaleY(1.08f).setDuration(85L).start()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - downX
                     val dy = event.rawY - downY
-                    val pulledInward = if (side == DockSide.LEFT) dx > dp(20) else dx < -dp(20)
+                    val pulledInward = if (side == DockSide.LEFT) dx > dp(18) else dx < -dp(18)
                     if (pulledInward) {
                         expandFromSide(side)
                         return@setOnTouchListener true
@@ -591,16 +669,28 @@ class FloatingLyricsWindow(
                         tabDragging = true
                     }
                     if (tabDragging) {
-                        val maxDragY = (screenH - pillHeight - dp(32)).coerceAtLeast(dp(32))
-                        p.y = (startTabY + dy).roundToInt().coerceIn(dp(32), maxDragY)
+                        p.y = (startTabY + dy).roundToInt().coerceIn(minY, maxTargetY)
                         runCatching { windowManager.updateViewLayout(tab, p) }
                     }
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    v.animate().scaleX(1f).scaleY(1f).setDuration(120L).start()
                     if (!tabDragging) {
                         expandFromSide(side)
+                    } else {
+                        AppSettingsStore.setFloatingYFraction(context, p.y.toFloat() / screenH.coerceAtLeast(1).toFloat())
+                        activeDockScaleXSpring?.cancel()
+                        activeDockScaleYSpring?.cancel()
+                        activeDockScaleXSpring = SpringAnimation(v, DynamicAnimation.SCALE_X, 1f).apply {
+                            spring.stiffness = FloatingGesturePhysics.PUFFY_POP_STIFFNESS
+                            spring.dampingRatio = FloatingGesturePhysics.PUFFY_POP_DAMPING
+                            start()
+                        }
+                        activeDockScaleYSpring = SpringAnimation(v, DynamicAnimation.SCALE_Y, 1f).apply {
+                            spring.stiffness = FloatingGesturePhysics.PUFFY_POP_STIFFNESS
+                            spring.dampingRatio = FloatingGesturePhysics.PUFFY_POP_DAMPING
+                            start()
+                        }
                     }
                     true
                 }
@@ -623,13 +713,15 @@ class FloatingLyricsWindow(
             dockTabParams = p
             activeAttachedDockView = WeakReference(tab)
 
-            tab.animate().alpha(1f).setDuration(180L).start()
-            SpringAnimation(tab, DynamicAnimation.SCALE_X, 1f).apply {
+            tab.animate().alpha(1f).setDuration(160L).start()
+            activeDockScaleXSpring?.cancel()
+            activeDockScaleYSpring?.cancel()
+            activeDockScaleXSpring = SpringAnimation(tab, DynamicAnimation.SCALE_X, 1f).apply {
                 spring.stiffness = FloatingGesturePhysics.PUFFY_POP_STIFFNESS
                 spring.dampingRatio = FloatingGesturePhysics.PUFFY_POP_DAMPING
                 start()
             }
-            SpringAnimation(tab, DynamicAnimation.SCALE_Y, 1f).apply {
+            activeDockScaleYSpring = SpringAnimation(tab, DynamicAnimation.SCALE_Y, 1f).apply {
                 spring.stiffness = FloatingGesturePhysics.PUFFY_POP_STIFFNESS
                 spring.dampingRatio = FloatingGesturePhysics.PUFFY_POP_DAMPING
                 start()
@@ -638,6 +730,10 @@ class FloatingLyricsWindow(
     }
 
     private fun removeDockTab() {
+        activeDockScaleXSpring?.cancel()
+        activeDockScaleXSpring = null
+        activeDockScaleYSpring?.cancel()
+        activeDockScaleYSpring = null
         dockTabView?.let { tab ->
             runCatching { windowManager.removeView(tab) }
             if (activeAttachedDockView?.get() === tab) {
@@ -651,7 +747,8 @@ class FloatingLyricsWindow(
     private fun expandFromSide(side: DockSide) {
         val view = lyricsView ?: return
         val p = params ?: return
-        val screenW = geometry?.availableWidth ?: windowContext.resources.displayMetrics.widthPixels
+        val bounds = geometry
+        val availW = bounds?.availableWidth ?: displayWidth()
         val tabY = dockTabParams?.y ?: p.y
 
         removeDockTab()
@@ -660,19 +757,44 @@ class FloatingLyricsWindow(
 
         view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
         view.visibility = View.VISIBLE
-        val startX = if (side == DockSide.LEFT) -p.width * 0.65f else screenW - p.width * 0.35f
-        val marginPx = dp(12)
-        val maxTargetX = (screenW - p.width - marginPx).coerceAtLeast(0)
-        val targetX = if (side == DockSide.LEFT) marginPx.coerceAtMost(maxTargetX).toFloat() else maxTargetX.toFloat()
 
-        p.x = startX.roundToInt()
-        p.y = geometry?.let { tabY.coerceIn(0, it.travelY) } ?: tabY
+        val marginPx = dp(12)
+        val maxLocalTargetX = (availW - p.width - marginPx).coerceAtLeast(0)
+        val targetLocalX = if (side == DockSide.LEFT) marginPx.coerceAtMost(maxLocalTargetX) else maxLocalTargetX
+        val targetWindowX = (insetLeft + targetLocalX).toFloat()
+        val startWindowX = if (side == DockSide.LEFT) {
+            insetLeft - p.width * 0.65f
+        } else {
+            insetLeft + availW - p.width * 0.35f
+        }
+
+        val targetLocalY = bounds?.let { (tabY - insetTop).coerceIn(0, it.travelY) } ?: (tabY - insetTop).coerceAtLeast(0)
+        p.x = startWindowX.roundToInt()
+        p.y = insetTop + targetLocalY
         runCatching { windowManager.updateViewLayout(view, p) }
 
         cancelActiveSprings()
-        playPuffyPopIn(view)
-        activeSpringX = SpringAnimation(FloatValueHolder(startX)).apply {
-            spring = SpringForce(targetX).apply {
+        animatingSpring = true
+        view.alpha = 0f
+        view.scaleX = 0.72f
+        view.scaleY = 0.78f
+        view.animate()
+            .alpha(1f)
+            .setDuration(170L)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+        activeScaleXSpring = SpringAnimation(view, DynamicAnimation.SCALE_X, 1f).apply {
+            spring.stiffness = FloatingGesturePhysics.PUFFY_POP_STIFFNESS
+            spring.dampingRatio = FloatingGesturePhysics.PUFFY_POP_DAMPING
+            start()
+        }
+        activeScaleYSpring = SpringAnimation(view, DynamicAnimation.SCALE_Y, 1f).apply {
+            spring.stiffness = FloatingGesturePhysics.PUFFY_POP_STIFFNESS
+            spring.dampingRatio = FloatingGesturePhysics.PUFFY_POP_DAMPING
+            start()
+        }
+        activeSpringX = SpringAnimation(FloatValueHolder(startWindowX)).apply {
+            spring = SpringForce(targetWindowX).apply {
                 dampingRatio = FloatingGesturePhysics.PUFFY_POP_DAMPING
                 stiffness = FloatingGesturePhysics.PUFFY_POP_STIFFNESS
             }
@@ -682,6 +804,7 @@ class FloatingLyricsWindow(
                 runCatching { windowManager.updateViewLayout(view, p) }
             }
             addEndListener { _, canceled, _, _ ->
+                animatingSpring = false
                 if (!canceled && lyricsView != null) {
                     saveDraggedPosition(p)
                 }
@@ -738,7 +861,9 @@ class FloatingLyricsWindow(
     private fun saveDraggedPosition(p: WindowManager.LayoutParams) {
         val bounds = geometry ?: return
         val previous = position ?: return
-        position = bounds.position(p.x, p.y, previous).also {
+        val localX = (p.x - insetLeft).coerceIn(0, bounds.travelX)
+        val localY = (p.y - insetTop).coerceIn(0, bounds.travelY)
+        position = bounds.position(localX, localY, previous).also {
             FloatingLyricsStyleStore.saveRelativePosition(context, it)
         }
     }
@@ -755,31 +880,52 @@ class FloatingLyricsWindow(
         }
     }
 
-    /** Coordinates are relative to WindowManager's inset-fitted frame, not the physical display. */
     @Suppress("DEPRECATION")
-    private fun availableSize(view: View): Pair<Int, Int> {
+    private fun displayWidth(): Int {
+        return if (Build.VERSION.SDK_INT >= 30) {
+            windowManager.currentWindowMetrics.bounds.width().coerceAtLeast(1)
+        } else {
+            windowContext.resources.displayMetrics.widthPixels.coerceAtLeast(1)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun displayHeight(): Int {
+        return if (Build.VERSION.SDK_INT >= 30) {
+            windowManager.currentWindowMetrics.bounds.height().coerceAtLeast(1)
+        } else {
+            windowContext.resources.displayMetrics.heightPixels.coerceAtLeast(1)
+        }
+    }
+
+    /** Returns the safe inset-fitted frame in physical display coordinates. */
+    @Suppress("DEPRECATION")
+    private fun availableFrame(view: View): Rect {
         if (Build.VERSION.SDK_INT >= 30) {
             val metrics = windowManager.currentWindowMetrics
             val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
                 WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()
             )
-            return (metrics.bounds.width() - insets.left - insets.right).coerceAtLeast(1) to
-                (metrics.bounds.height() - insets.top - insets.bottom).coerceAtLeast(1)
+            val width = (metrics.bounds.width() - insets.left - insets.right).coerceAtLeast(1)
+            val height = (metrics.bounds.height() - insets.top - insets.bottom).coerceAtLeast(1)
+            return Rect(insets.left, insets.top, insets.left + width, insets.top + height)
         }
-        // Before WindowMetrics, the attached view exposes the display frame fitted by WM.
-        // Subtracting rootWindowInsets again would double-count already fitted system bars.
         if (view.isAttachedToWindow) {
             val frame = Rect()
             view.getWindowVisibleDisplayFrame(frame)
-            if (!frame.isEmpty) return frame.width() to frame.height()
+            if (!frame.isEmpty) return frame
         }
         val size = Point()
         windowManager.defaultDisplay.getSize(size)
-        return size.x.coerceAtLeast(1) to size.y.coerceAtLeast(1)
+        return Rect(0, 0, size.x.coerceAtLeast(1), size.y.coerceAtLeast(1))
     }
 
     private fun calculateLayout(view: TextView, p: WindowManager.LayoutParams, remap: Boolean): Boolean {
-        val (availableWidth, availableHeight) = availableSize(view)
+        val frame = availableFrame(view)
+        insetLeft = frame.left
+        insetTop = frame.top
+        val availableWidth = frame.width().coerceAtLeast(1)
+        val availableHeight = frame.height().coerceAtLeast(1)
         val width = FloatingWindowGeometry.width(
             availableWidth, FloatingLyricsStyleStore.getStyle(context).maxWidthPercent
         )
@@ -800,21 +946,32 @@ class FloatingLyricsWindow(
             val initial = if (FloatingLyricsStyleStore.hasLegacyPosition(context)) {
                 next.migrate(x, y, touchSlop)
             } else next.position(0, y, FloatingPosition(0.5f, 0f)).copy(horizontal = 0.5f)
-            // Pre-30 must wait for the fitted frame before migrating pixels permanently.
             if (Build.VERSION.SDK_INT >= 30 || view.isAttachedToWindow) {
                 position = initial
                 FloatingLyricsStyleStore.saveRelativePosition(context, initial)
             }
             initial
         }
-        val (x, y) = if (remap || areaChanged || previous.width != width) {
-            next.coordinates(relative)
-        } else p.x.coerceIn(0, next.travelX) to p.y.coerceIn(0, next.travelY)
-        val changed = p.width != width || p.x != x || p.y != y
-        p.width = width
-        p.x = x
-        p.y = y
         geometry = next
+
+        // Never overwrite coordinates mid-drag, mid-spring, or while collapsed into the edge tab.
+        if (gestureActive || animatingSpring || currentDockSide != DockSide.NONE) {
+            val widthChanged = p.width != width
+            p.width = width
+            return widthChanged
+        }
+
+        val (localX, localY) = if (remap || areaChanged || previous?.width != width) {
+            next.coordinates(relative)
+        } else {
+            (p.x - insetLeft).coerceIn(0, next.travelX) to (p.y - insetTop).coerceIn(0, next.travelY)
+        }
+        val windowX = insetLeft + localX
+        val windowY = insetTop + localY
+        val changed = p.width != width || p.x != windowX || p.y != windowY
+        p.width = width
+        p.x = windowX
+        p.y = windowY
         return changed
     }
 
@@ -836,11 +993,13 @@ class FloatingLyricsWindow(
     }
 
     private fun windowFlagsForCurrentBehavior(): Int {
+        val base = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
         return if (FloatingLyricsStyleStore.isClickThrough(context)) {
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            base or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
         } else {
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            base
         }
     }
 

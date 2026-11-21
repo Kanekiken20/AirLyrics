@@ -6,11 +6,14 @@ import com.andsi.airlyrics.ui.state.forgetAuxiliaryDialog
 
 import com.andsi.airlyrics.R
 
+import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
 import com.andsi.airlyrics.ui.model.MainUiHost
@@ -22,6 +25,7 @@ import com.andsi.airlyrics.design.tokens.AirUiTokens
 import com.andsi.airlyrics.lockscreen.AirLyricsAodWidgetProvider
 import com.andsi.airlyrics.lockscreen.AirLyricsDockWidgetProvider
 import com.andsi.airlyrics.settings.store.AppSettingsStore
+import com.andsi.airlyrics.settings.store.FloatingLyricsFontStore
 import com.andsi.airlyrics.widget.FixedLyricsPanelProvider
 import android.content.Intent
 import android.net.Uri
@@ -35,7 +39,7 @@ internal fun createSystemSettingsPage(activity: MainUiHost, animateChildren: Boo
     container.addView(languageChoiceCard(activity))
     container.addView(statusPopupsMuteCard(activity))
     container.addView(aodLyricsCard(activity))
-    container.addView(lockScreenLyricsCard(activity))
+    container.addView(lockScreenWidgetStyleCard(activity))
 
     container.addView(systemPermissionCard())
 
@@ -65,8 +69,8 @@ private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyrics
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                 setMargins(0, 0, dp(AirUiTokens.Space.Xl + AirUiTokens.Space.Lg), 0)
             }
-            addView(bigText(activity, "LockStar AOD & Dock Widgets"))
-            addView(smallHint(activity, "Feeds the 4x4 pure-black AMOLED AOD square card and Now Playing Dock widget via Good Lock LockStar without altering Samsung's native media player."))
+            addView(bigText(activity, "LockStar Lock Screen & AOD Widgets"))
+            addView(smallHint(activity, "Feeds AirLyrics widgets via Good Lock LockStar while leaving Samsung's stock Lock Screen & AOD media player untouched."))
         })
 
         addView(aodLyricsSwitch)
@@ -93,6 +97,10 @@ private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyrics
                 FixedLyricsPanelProvider.updateLyrics(activity, null, null)
                 FixedLyricsPanelProvider.pushLatest(activity, force = true)
             }
+            activity.sendBroadcast(
+                Intent(AppSettingsStore.ACTION_STYLE_PREF_CHANGED)
+                    .setPackage(activity.packageName)
+            )
         }
         setOnClickListener {
             aodLyricsSwitch.isChecked = !aodLyricsSwitch.isChecked
@@ -100,64 +108,235 @@ private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyrics
     }
 }
 
-private fun lockScreenLyricsCard(activity: MainUiHost): View = with(activity) lockScreenLyricsCard@ {
-    val lockScreenSwitch = SwitchCompat(activity).apply {
-        isChecked = AppSettingsStore.isLockScreenCardEnabled(activity)
-        applyAirThemeTint(activity)
-        contentDescription = "Lock Screen Notification Card"
-        layoutParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
+private fun lockScreenWidgetStyleCard(activity: MainUiHost): View = with(activity) lockScreenWidgetStyleCard@ {
+    fun notifyStyleUpdated() {
+        AirLyricsAodWidgetProvider.pushLatest(activity, force = true)
+        AirLyricsDockWidgetProvider.pushLatest(activity, force = true)
+        activity.sendBroadcast(
+            Intent(AppSettingsStore.ACTION_STYLE_PREF_CHANGED)
+                .setPackage(activity.packageName)
         )
     }
 
-    val notificationsGranted = hasNotificationPermission()
+    fun styleChoiceChip(view: TextView, selected: Boolean) {
+        val tone = if (selected) AirTonalButtonTone.SELECTED else AirTonalButtonTone.DEFAULT
+        val style = activity.airTonalButtonStyle(tone)
+        view.setTextColor(style.textColor)
+        view.typeface = if (selected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+        activity.styleAirTonalButton(view, tone)
+    }
 
     return card(activity) {
         orientation = LinearLayout.VERTICAL
-        isClickable = true
-        isFocusable = true
-        enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
 
-        val topRow = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(LinearLayout(activity).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    setMargins(0, 0, dp(AirUiTokens.Space.Xl + AirUiTokens.Space.Lg), 0)
-                }
-                addView(bigText(activity, "Lock Screen Notification Card"))
-                addView(smallHint(activity, "Displays a rounded One UI lyrics card synchronously on your Lock Screen without Accessibility services."))
-            })
-            addView(lockScreenSwitch)
-        }
-        addView(topRow)
+        addView(bigText(activity, "Lock Screen & AOD Widget Style"))
+        addView(smallHint(
+            activity,
+            "Applies to Lock Screen widgets and Floating lyrics. AOD automatically switches to pure high-contrast white native text."
+        ))
 
-        val hintText = if (notificationsGranted) {
-            smallHint(activity, "Keep Samsung Lock screen notifications set to Cards with Show content enabled.")
-        } else {
-            smallHint(activity, "Tap to allow Notifications for the Lock Screen Lyrics Card").apply {
-                setTextColor(activity.colorAccentText)
-            }
-        }
-        addView(hintText.apply {
-            setPadding(0, dp(AirUiTokens.Space.Sm), 0, 0)
+        // 1. Font Style Selector (Default / Spotify / Apple Music)
+        addView(TextView(activity).apply {
+            text = getString(R.string.ui_font)
+            textSize = AirUiTokens.TextSize.Body
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(colorText)
+            setPadding(0, dp(AirUiTokens.Space.Xl), 0, dp(AirUiTokens.Space.Sm))
         })
 
-        lockScreenSwitch.setOnCheckedChangeListener { _, checked ->
-            AppSettingsStore.setLockScreenCardEnabled(activity, checked)
-            if (checked && !hasNotificationPermission()) {
-                uiActions.requestNotificationPermission()
+        val fontPresets = listOf(
+            AppSettingsStore.FONT_PRESET_DEFAULT to getString(R.string.ui_font_preset_default),
+            AppSettingsStore.FONT_PRESET_SPOTIFY to getString(R.string.ui_font_preset_spotify),
+            AppSettingsStore.FONT_PRESET_APPLE_MUSIC to getString(R.string.ui_font_preset_apple_music)
+        )
+        val fontRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        val fontButtons = mutableListOf<Pair<String, TextView>>()
+        val currentFontPreset = AppSettingsStore.getLyricsFontPreset(activity)
+        fontPresets.forEachIndexed { idx, (presetKey, label) ->
+            val btn = TextView(activity).apply {
+                text = label
+                textSize = AirUiTokens.TextSize.Body
+                gravity = Gravity.CENTER
+                setPadding(dp(AirUiTokens.Space.Lg), dp(AirUiTokens.Space.ControlV), dp(AirUiTokens.Space.Lg), dp(AirUiTokens.Space.ControlV))
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    if (idx > 0) marginStart = dp(AirUiTokens.Space.Sm)
+                }
+                enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+                styleChoiceChip(this, presetKey == currentFontPreset)
+            }
+            fontButtons += presetKey to btn
+            fontRow.addView(btn)
+        }
+        fontButtons.forEach { (presetKey, btn) ->
+            btn.setOnClickListener {
+                AppSettingsStore.setLyricsFontPreset(activity, presetKey)
+                FloatingLyricsFontStore.evictCache()
+                fontButtons.forEach { (key, view) -> styleChoiceChip(view, key == presetKey) }
+                notifyStyleUpdated()
+            }
+        }
+        addView(fontRow)
+
+        // 2. Live Widget Text-Size Scaling (75% - 145%)
+        val initialScale = AppSettingsStore.getWidgetTextScalePercent(activity)
+        val scaleLabel = TextView(activity).apply {
+            text = "Widget text size: $initialScale%"
+            textSize = AirUiTokens.TextSize.Body
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(colorText)
+            setPadding(0, dp(AirUiTokens.Space.Xl), 0, dp(AirUiTokens.Space.Xxs))
+        }
+        addView(scaleLabel)
+
+        val scaleStep = 5
+        val scaleSeekBar = SeekBar(activity).apply {
+            max = (AppSettingsStore.WIDGET_TEXT_SCALE_MAX - AppSettingsStore.WIDGET_TEXT_SCALE_MIN) / scaleStep
+            progress = ((initialScale - AppSettingsStore.WIDGET_TEXT_SCALE_MIN) / scaleStep).coerceIn(0, max)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    val percent = AppSettingsStore.WIDGET_TEXT_SCALE_MIN + progress * scaleStep
+                    scaleLabel.text = "Widget text size: $percent%"
+                    if (fromUser) {
+                        AppSettingsStore.setWidgetTextScalePercent(activity, percent)
+                        notifyStyleUpdated()
+                    }
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+                override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+            })
+        }
+        addView(scaleSeekBar)
+
+        // 3. Automatic (Album Art Palette) / Manual Widget Color Mode
+        addView(TextView(activity).apply {
+            text = "Lock Screen widget color"
+            textSize = AirUiTokens.TextSize.Body
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(colorText)
+            setPadding(0, dp(AirUiTokens.Space.Xl), 0, dp(AirUiTokens.Space.Sm))
+        })
+
+        val swatchColors = intArrayOf(
+            Color.parseColor("#FFFFFF"),
+            Color.parseColor("#96B8FF"),
+            Color.parseColor("#7CF2A5"),
+            Color.parseColor("#FFD67A"),
+            Color.parseColor("#FF8DA1"),
+            Color.parseColor("#C9A6FF"),
+            Color.parseColor("#78DCFF")
+        )
+        val swatchRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(AirUiTokens.Space.Lg), 0, dp(AirUiTokens.Space.Xxs))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val currentColorMode = AppSettingsStore.getWidgetColorMode(activity)
+        val autoBtn = TextView(activity).apply {
+            text = "Auto (Album Art)"
+            textSize = AirUiTokens.TextSize.Body
+            gravity = Gravity.CENTER
+            setPadding(dp(AirUiTokens.Space.Lg), dp(AirUiTokens.Space.ControlV), dp(AirUiTokens.Space.Lg), dp(AirUiTokens.Space.ControlV))
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+            styleChoiceChip(this, currentColorMode == AppSettingsStore.WIDGET_COLOR_MODE_AUTO)
+        }
+        val manualBtn = TextView(activity).apply {
+            text = "Manual"
+            textSize = AirUiTokens.TextSize.Body
+            gravity = Gravity.CENTER
+            setPadding(dp(AirUiTokens.Space.Lg), dp(AirUiTokens.Space.ControlV), dp(AirUiTokens.Space.Lg), dp(AirUiTokens.Space.ControlV))
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dp(AirUiTokens.Space.Sm)
+            }
+            enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+            styleChoiceChip(this, currentColorMode == AppSettingsStore.WIDGET_COLOR_MODE_MANUAL)
+        }
+
+        val colorModeRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            addView(autoBtn)
+            addView(manualBtn)
+        }
+        addView(colorModeRow)
+
+        val swatchViews = mutableListOf<Pair<Int, View>>()
+        fun refreshSwatches(selectedColor: Int) {
+            swatchViews.forEach { (color, swatch) ->
+                val isSelected = color == selectedColor
+                swatch.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(color)
+                    setStroke(
+                        dp(if (isSelected) 3 else 1),
+                        if (isSelected) activity.colorAccentText else Color.parseColor("#55FFFFFF")
+                    )
+                }
             }
         }
 
-        setOnClickListener {
-            if (!hasNotificationPermission()) {
-                uiActions.requestNotificationPermission()
-            } else {
-                lockScreenSwitch.isChecked = !lockScreenSwitch.isChecked
+        val initialManualColor = AppSettingsStore.getWidgetManualColor(activity)
+        swatchColors.forEachIndexed { idx, color ->
+            val swatch = View(activity).apply {
+                val size = dp(32)
+                layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                    if (idx > 0) marginStart = dp(AirUiTokens.Space.Lg)
+                }
+                isClickable = true
+                isFocusable = true
+                enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+                setOnClickListener {
+                    AppSettingsStore.setWidgetColorMode(activity, AppSettingsStore.WIDGET_COLOR_MODE_MANUAL)
+                    AppSettingsStore.setWidgetManualColor(activity, color)
+                    styleChoiceChip(autoBtn, false)
+                    styleChoiceChip(manualBtn, true)
+                    refreshSwatches(color)
+                    notifyStyleUpdated()
+                }
             }
+            swatchViews += color to swatch
+            swatchRow.addView(swatch)
+        }
+        refreshSwatches(initialManualColor)
+        swatchRow.visibility = if (currentColorMode == AppSettingsStore.WIDGET_COLOR_MODE_MANUAL) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+        addView(swatchRow)
+
+        autoBtn.setOnClickListener {
+            AppSettingsStore.setWidgetColorMode(activity, AppSettingsStore.WIDGET_COLOR_MODE_AUTO)
+            styleChoiceChip(autoBtn, true)
+            styleChoiceChip(manualBtn, false)
+            swatchRow.visibility = View.GONE
+            notifyStyleUpdated()
+        }
+        manualBtn.setOnClickListener {
+            AppSettingsStore.setWidgetColorMode(activity, AppSettingsStore.WIDGET_COLOR_MODE_MANUAL)
+            styleChoiceChip(autoBtn, false)
+            styleChoiceChip(manualBtn, true)
+            swatchRow.visibility = View.VISIBLE
+            refreshSwatches(AppSettingsStore.getWidgetManualColor(activity))
+            notifyStyleUpdated()
         }
     }
 }

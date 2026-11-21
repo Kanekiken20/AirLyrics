@@ -1,4 +1,4 @@
-package com.andsi.airlyrics.lockscreen
+﻿package com.andsi.airlyrics.lockscreen
 
 import android.content.Context
 import android.graphics.Color
@@ -13,7 +13,10 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import com.andsi.airlyrics.R
+import com.andsi.airlyrics.settings.store.AppSettingsStore
+import com.andsi.airlyrics.settings.store.FloatingLyricsFontStore
 
 /**
  * Small, square, smooth, rounded One UI-styled lyrics card rendered directly on the
@@ -81,19 +84,28 @@ class LockScreenLyricsCardWindow(private val context: Context) {
             scaleY = 0.92f
         }
 
+        val scale = AppSettingsStore.getWidgetTextScalePercent(context) / 100f
+        val accent = if (AppSettingsStore.getWidgetColorMode(context) == AppSettingsStore.WIDGET_COLOR_MODE_MANUAL) {
+            AppSettingsStore.getWidgetManualColor(context)
+        } else {
+            Color.WHITE
+        }
+        val boldFace = FloatingLyricsFontStore.resolveWidgetTypeface(context, isBold = true)
+        val regularFace = FloatingLyricsFontStore.resolveWidgetTypeface(context, isBold = false)
+
         val track = TextView(context).apply {
-            setTextColor(Color.parseColor("#99FFFFFF"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setTextColor(ColorUtils.setAlphaComponent(accent, 165))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f * scale)
+            typeface = regularFace
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
             gravity = Gravity.CENTER
         }
 
         val primary = TextView(context).apply {
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            setTextColor(accent)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f * scale)
+            typeface = boldFace
             maxLines = 4
             ellipsize = TextUtils.TruncateAt.END
             gravity = Gravity.CENTER
@@ -108,9 +120,9 @@ class LockScreenLyricsCardWindow(private val context: Context) {
         }
 
         val secondary = TextView(context).apply {
-            setTextColor(Color.parseColor("#80FFFFFF"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            setTextColor(ColorUtils.setAlphaComponent(accent, 185))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f * scale)
+            typeface = regularFace
             maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
             gravity = Gravity.CENTER
@@ -148,18 +160,38 @@ class LockScreenLyricsCardWindow(private val context: Context) {
         trackTitle: String,
         artistName: String
     ) {
+        val scale = AppSettingsStore.getWidgetTextScalePercent(context) / 100f
+        val accent = if (AppSettingsStore.getWidgetColorMode(context) == AppSettingsStore.WIDGET_COLOR_MODE_MANUAL) {
+            AppSettingsStore.getWidgetManualColor(context)
+        } else {
+            Color.WHITE
+        }
+        val boldFace = FloatingLyricsFontStore.resolveWidgetTypeface(context, isBold = true)
+        val regularFace = FloatingLyricsFontStore.resolveWidgetTypeface(context, isBold = false)
+
         val header = listOf(trackTitle, artistName)
             .filter { it.isNotBlank() }
             .joinToString(" • ")
 
         trackLabel?.apply {
+            typeface = regularFace
+            setTextColor(ColorUtils.setAlphaComponent(accent, 165))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f * scale)
             text = header.ifBlank { "Now Playing" }
             visibility = View.VISIBLE
         }
 
-        currentLyricView?.text = currentLine.ifBlank { trackTitle }
+        currentLyricView?.apply {
+            typeface = boldFace
+            setTextColor(accent)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f * scale)
+            text = currentLine.ifBlank { trackTitle }
+        }
 
         nextLyricView?.apply {
+            typeface = regularFace
+            setTextColor(ColorUtils.setAlphaComponent(accent, 185))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f * scale)
             if (nextLine.isNotBlank()) {
                 text = nextLine
                 visibility = View.VISIBLE

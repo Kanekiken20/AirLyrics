@@ -1,6 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/app_name"
+    android:initialKeyguardLayout="@layout/notification_lockscreen_lyrics_dock"
     android:initialLayout="@layout/notification_lockscreen_lyrics_dock"
     android:minWidth="220dp"
     android:minHeight="48dp"

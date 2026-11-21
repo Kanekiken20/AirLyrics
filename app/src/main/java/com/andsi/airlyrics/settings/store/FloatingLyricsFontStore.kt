@@ -1,4 +1,4 @@
-package com.andsi.airlyrics.settings.store
+﻿package com.andsi.airlyrics.settings.store
 
 import android.content.Context
 import android.graphics.Typeface
@@ -13,7 +13,9 @@ import com.andsi.airlyrics.util.safeFinishWrite
 import android.util.LruCache
 import android.widget.TextView
 import androidx.annotation.RequiresApi
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.TypefaceCompat
+import com.andsi.airlyrics.R
 import com.andsi.airlyrics.core.model.FloatingLyricsFontFamily
 import com.andsi.airlyrics.core.model.FloatingLyricsFontWeight
 import com.andsi.airlyrics.core.prefs.prefs
@@ -100,18 +102,25 @@ object FloatingLyricsFontStore {
             ?.takeIf { it.isNotBlank() }
     }
 
+    fun evictCache() {
+        typefaceCache.evictAll()
+    }
+
     fun resolveTypeface(
         context: Context,
         fontFamily: FloatingLyricsFontFamily,
         fontWeight: Int
     ): Typeface {
-        val weight = FloatingLyricsFontWeight.normalize(fontWeight)
+        val preset = AppSettingsStore.getLyricsFontPreset(context)
+        val weight = effectivePresetWeight(preset, FloatingLyricsFontWeight.normalize(fontWeight))
         val customFile = customFontFile(context)
         val cacheKey = buildString {
+            append(preset)
+            append(':')
             append(fontFamily.key)
             append(':')
             append(weight)
-            if (fontFamily == FloatingLyricsFontFamily.CUSTOM) {
+            if (preset == AppSettingsStore.FONT_PRESET_DEFAULT && fontFamily == FloatingLyricsFontFamily.CUSTOM) {
                 append(':')
                 append(customFile.lastModified())
                 append(':')
@@ -120,19 +129,37 @@ object FloatingLyricsFontStore {
         }
         typefaceCache.get(cacheKey)?.let { return it }
 
-        val resolved = if (fontFamily == FloatingLyricsFontFamily.CUSTOM && hasCustomFont(context)) {
-            buildCustomTypeface(context, customFile, weight)
-                ?: weightedSystemTypeface(context, Typeface.DEFAULT, weight)
-        } else {
-            val base = when (fontFamily) {
-                FloatingLyricsFontFamily.SANS_SERIF -> Typeface.SANS_SERIF
-                FloatingLyricsFontFamily.SERIF -> Typeface.SERIF
-                FloatingLyricsFontFamily.MONOSPACE -> Typeface.MONOSPACE
-                FloatingLyricsFontFamily.SYSTEM_DEFAULT,
-                FloatingLyricsFontFamily.CUSTOM -> Typeface.DEFAULT
+        val resolved = resolvePresetTypeface(context, preset, weight)
+            ?: if (fontFamily == FloatingLyricsFontFamily.CUSTOM && hasCustomFont(context)) {
+                buildCustomTypeface(context, customFile, weight)
+                    ?: weightedSystemTypeface(context, Typeface.DEFAULT, weight)
+            } else {
+                val base = when (fontFamily) {
+                    FloatingLyricsFontFamily.SANS_SERIF -> Typeface.SANS_SERIF
+                    FloatingLyricsFontFamily.SERIF -> Typeface.SERIF
+                    FloatingLyricsFontFamily.MONOSPACE -> Typeface.MONOSPACE
+                    FloatingLyricsFontFamily.SYSTEM_DEFAULT,
+                    FloatingLyricsFontFamily.CUSTOM -> Typeface.DEFAULT
+                }
+                weightedSystemTypeface(context, base, weight)
             }
-            weightedSystemTypeface(context, base, weight)
+        typefaceCache.put(cacheKey, resolved)
+        return resolved
+    }
+
+    /** Resolves the typeface used by Lock Screen & AOD widgets honoring Spotify / Apple Music presets. */
+    fun resolveWidgetTypeface(context: Context, isBold: Boolean): Typeface {
+        val preset = AppSettingsStore.getLyricsFontPreset(context)
+        val weight = when (preset) {
+            AppSettingsStore.FONT_PRESET_SPOTIFY -> if (isBold) 700 else 500
+            AppSettingsStore.FONT_PRESET_APPLE_MUSIC -> if (isBold) 600 else 450
+            else -> if (isBold) 700 else 400
         }
+        val cacheKey = "widget:$preset:$weight"
+        typefaceCache.get(cacheKey)?.let { return it }
+
+        val resolved = resolvePresetTypeface(context, preset, weight)
+            ?: resolveTypeface(context, FloatingLyricsStyleStore.getStyle(context).fontFamily, weight)
         typefaceCache.put(cacheKey, resolved)
         return resolved
     }
@@ -143,9 +170,49 @@ object FloatingLyricsFontStore {
         fontFamily: FloatingLyricsFontFamily,
         fontWeight: Int
     ) {
-        val weight = FloatingLyricsFontWeight.normalize(fontWeight)
-        view.typeface = resolveTypeface(view.context, fontFamily, weight)
-        view.fontVariationSettings = "'wght' $weight"
+        val preset = AppSettingsStore.getLyricsFontPreset(view.context)
+        val normalized = FloatingLyricsFontWeight.normalize(fontWeight)
+        val effectiveWeight = effectivePresetWeight(preset, normalized)
+        view.typeface = resolveTypeface(view.context, fontFamily, normalized)
+        view.fontVariationSettings = "'wght' $effectiveWeight"
+    }
+
+    private fun effectivePresetWeight(preset: String, requestedWeight: Int): Int {
+        return when (preset) {
+            AppSettingsStore.FONT_PRESET_SPOTIFY -> if (requestedWeight <= 400) 700 else requestedWeight
+            AppSettingsStore.FONT_PRESET_APPLE_MUSIC -> if (requestedWeight <= 400) 600 else requestedWeight
+            else -> requestedWeight
+        }
+    }
+
+    private fun resolvePresetTypeface(context: Context, preset: String, weight: Int): Typeface? {
+        val resId = when (preset) {
+            AppSettingsStore.FONT_PRESET_SPOTIFY -> R.font.figtree_bold
+            AppSettingsStore.FONT_PRESET_APPLE_MUSIC -> R.font.inter_semibold
+            else -> return null
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            buildResourceTypefaceApi29(context, resId, weight)?.let { return it }
+        }
+        return runCatching {
+            val base = ResourcesCompat.getFont(context, resId) ?: return@runCatching null
+            TypefaceCompat.create(context, base, weight, false)
+        }.getOrNull()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun buildResourceTypefaceApi29(context: Context, resId: Int, weight: Int): Typeface? {
+        return runCatching {
+            val font = Font.Builder(context.resources, resId)
+                .setFontVariationSettings("'wght' $weight")
+                .setWeight(weight)
+                .build()
+            val family = FontFamily.Builder(font).build()
+            Typeface.CustomFallbackBuilder(family)
+                .setSystemFallback("sans-serif")
+                .setStyle(FontStyle(weight, FontStyle.FONT_SLANT_UPRIGHT))
+                .build()
+        }.getOrNull()
     }
 
     internal fun isSupportedFontFileName(displayName: String): Boolean {
