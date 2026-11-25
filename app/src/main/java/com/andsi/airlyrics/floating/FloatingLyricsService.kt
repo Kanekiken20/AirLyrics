@@ -11,6 +11,8 @@ import android.media.MediaMetadata
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.PowerManager
+import com.andsi.airlyrics.aod.LockScreenAodLyricsActivity
+import com.andsi.airlyrics.aod.LyricsStateHolder
 import com.andsi.airlyrics.lockscreen.AirLyricsAodWidgetProvider
 import com.andsi.airlyrics.lockscreen.AirLyricsDockWidgetProvider
 import com.andsi.airlyrics.lockscreen.LockScreenLyricsSnapshot
@@ -41,6 +43,7 @@ import com.andsi.airlyrics.lyrics.LyricsLookupRunner
 import com.andsi.airlyrics.lyrics.LyricsProviderResult
 import com.andsi.airlyrics.lyrics.LyricsRepository
 import com.andsi.airlyrics.media.CurrentMediaBroadcast
+import com.andsi.airlyrics.media.MediaSessionObserver
 import com.andsi.airlyrics.media.MediaSourceStore
 import com.andsi.airlyrics.media.model.CurrentMediaInfo
 import com.andsi.airlyrics.settings.store.AppSettingsStore
@@ -189,6 +192,9 @@ open class FloatingLyricsService : Service() {
     private var localizedContentLanguageTags: String? = null
 
     private var isScreenOnWidgetReceiverRegistered = false
+    private var suppressStandaloneAodUntilUnlock = false
+    private var pendingStandaloneAodLaunch: Runnable? = null
+    private var directMediaObserver: MediaSessionObserver? = null
     private var cachedAccentTrackKey: String? = null
     private var cachedAccentColor: Int? = null
     private lateinit var lockScreenPublisher: LockScreenNotificationCardPublisher
@@ -211,6 +217,9 @@ open class FloatingLyricsService : Service() {
                 isLocked = km?.isKeyguardLocked == true,
                 forceImmediate = true
             )
+            if (shouldObserveSelectedMedia()) {
+                startSelectedMediaObservation()
+            }
         }
     }
 
@@ -219,13 +228,20 @@ open class FloatingLyricsService : Service() {
     }
 
     internal fun shouldObserveExternalSurfaces(): Boolean {
-        if (!AppSettingsStore.isAodLyricsEnabled(this)) return false
+        val nowBarActive = AppSettingsStore.isNowBarLiveUpdatesEnabled(this) ||
+            AppSettingsStore.isLockScreenCardEnabled(this)
+        val standaloneAodActive = AppSettingsStore.isStandaloneAodScreenEnabled(this)
+        if (!AppSettingsStore.isAodLyricsEnabled(this) && !nowBarActive && !standaloneAodActive) {
+            return false
+        }
         val hasFixedPanel = runCatching {
             AppWidgetManager.getInstance(this)
                 .getAppWidgetIds(ComponentName(this, FixedLyricsPanelProvider::class.java))
                 ?.isNotEmpty() == true
         }.getOrDefault(false)
-        return AirLyricsAodWidgetProvider.hasActiveWidgets(this) ||
+        return nowBarActive ||
+            standaloneAodActive ||
+            AirLyricsAodWidgetProvider.hasActiveWidgets(this) ||
             AirLyricsDockWidgetProvider.hasActiveWidgets(this) ||
             hasFixedPanel
     }
@@ -234,9 +250,16 @@ open class FloatingLyricsService : Service() {
         return !currentMedia.isEmpty && currentMedia.isPlaying && shouldObserveExternalSurfaces()
     }
 
+    private fun cancelPendingStandaloneAodLaunch() {
+        pendingStandaloneAodLaunch?.let { syncHandler.removeCallbacks(it) }
+        pendingStandaloneAodLaunch = null
+    }
+
     private val screenOnWidgetReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val ctx = context ?: this@FloatingLyricsService
+            val standaloneEnabled = AppSettingsStore.isStandaloneAodScreenEnabled(ctx)
+            val isPlaying = currentMedia.isPlaying && !currentMedia.isEmpty
 
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
@@ -245,20 +268,55 @@ open class FloatingLyricsService : Service() {
                     // Re-push once after One UI / LockStar finishes attaching its AOD host surface.
                     syncHandler.postDelayed(aodSettleRefreshRunnable, 450L)
                     scheduleNextLyricsSync()
+
+                    if (standaloneEnabled && isPlaying) {
+                        if (LyricsStateHolder.isAodActivityVisible) {
+                            suppressStandaloneAodUntilUnlock = true
+                        } else if (!suppressStandaloneAodUntilUnlock) {
+                            cancelPendingStandaloneAodLaunch()
+                            val pm = ctx.getSystemService(PowerManager::class.java)
+                            val launchRunnable = Runnable {
+                                if (pm != null && !pm.isInteractive &&
+                                    AppSettingsStore.isStandaloneAodScreenEnabled(ctx) &&
+                                    currentMedia.isPlaying && !currentMedia.isEmpty &&
+                                    !suppressStandaloneAodUntilUnlock
+                                ) {
+                                    runCatching {
+                                        ctx.startActivity(LockScreenAodLyricsActivity.createIntent(ctx, aodMode = true))
+                                    }
+                                }
+                            }
+                            pendingStandaloneAodLaunch = launchRunnable
+                            syncHandler.postDelayed(launchRunnable, 400L)
+                        }
+                    }
                 }
 
                 Intent.ACTION_SCREEN_ON -> {
                     syncHandler.removeCallbacks(aodSettleRefreshRunnable)
+                    cancelPendingStandaloneAodLaunch()
                     val km = ctx.getSystemService(KeyguardManager::class.java)
                     val isLocked = km != null && km.isKeyguardLocked
                     updateAodAndLockScreen(isInteractive = true, isLocked = isLocked, forceImmediate = true)
+                    refreshSelectedCurrentMediaInfo()
                     scheduleNextLyricsSync()
                     FixedLyricsPanelProvider.pushLatest(this@FloatingLyricsService, force = true)
+
+                    if (standaloneEnabled && isPlaying && isLocked &&
+                        !suppressStandaloneAodUntilUnlock && !LyricsStateHolder.isAodActivityVisible
+                    ) {
+                        runCatching {
+                            ctx.startActivity(LockScreenAodLyricsActivity.createIntent(ctx, aodMode = false))
+                        }
+                    }
                 }
 
                 Intent.ACTION_USER_PRESENT -> {
                     syncHandler.removeCallbacks(aodSettleRefreshRunnable)
+                    cancelPendingStandaloneAodLaunch()
+                    suppressStandaloneAodUntilUnlock = false
                     updateAodAndLockScreen(isInteractive = true, isLocked = false, forceImmediate = true)
+                    refreshSelectedCurrentMediaInfo()
                     scheduleNextLyricsSync()
                     FixedLyricsPanelProvider.pushLatest(this@FloatingLyricsService, force = true)
                 }
@@ -297,10 +355,21 @@ open class FloatingLyricsService : Service() {
         forceImmediate: Boolean = false
     ) {
         val isAodWidgetEnabled = AppSettingsStore.isAodLyricsEnabled(this)
+        val isNowBarEnabled = AppSettingsStore.isNowBarLiveUpdatesEnabled(this)
+        val isLockCardEnabled = AppSettingsStore.isLockScreenCardEnabled(this)
         val isPlaying = currentMedia.isPlaying && !currentMedia.isEmpty
         val lineContext = renderer.currentLineContext()
         val resolvedCurrent = lineContext.currentLine.ifBlank { renderer.lastRenderedText.orEmpty() }
         val accentColor = if (!currentMedia.isEmpty) resolveAlbumArtAccentColor() else null
+
+        LyricsStateHolder.updateLyrics(
+            trackTitle = currentMedia.title,
+            artist = currentMedia.artist,
+            previousLine = lineContext.previousLine,
+            currentLine = resolvedCurrent,
+            nextLine = lineContext.nextLine,
+            isPlaying = isPlaying
+        )
 
         val snapshot = LockScreenLyricsSnapshot(
             trackTitle = currentMedia.title,
@@ -314,11 +383,19 @@ open class FloatingLyricsService : Service() {
             albumArtAccentColor = accentColor
         )
 
-        // Never publish a competing lock-screen/AOD notification card; let Samsung's stock
-        // Lock Screen & AOD Media Player / Now Bar operate natively without interference.
-        lockScreenPublisher.clear()
+        // Publish Android 16+ Now Bar Live Updates (without touching Samsung's MediaSession),
+        // or the standalone Lock Screen card when enabled while playing.
+        if (isPlaying && (isNowBarEnabled || isLockCardEnabled)) {
+            lockScreenPublisher.publish(
+                snapshot = snapshot,
+                force = forceImmediate,
+                useNowBarLiveUpdates = isNowBarEnabled
+            )
+        } else {
+            lockScreenPublisher.clear()
+        }
 
-        // Drive Lock Screen and LockStar AOD exclusively through dedicated AppWidgets.
+        // Drive Lock Screen and LockStar AOD dedicated AppWidgets.
         if (isAodWidgetEnabled && !currentMedia.isEmpty) {
             AirLyricsAodWidgetProvider.updateAllWidgets(
                 context = this,
@@ -501,6 +578,25 @@ open class FloatingLyricsService : Service() {
             IntentFilter(AppSettingsStore.ACTION_STYLE_PREF_CHANGED),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
+
+        directMediaObserver = MediaSessionObserver(
+            context = this,
+            handler = syncHandler,
+            listener = object : MediaSessionObserver.Listener {
+                override fun onCurrentMediaChanged(media: CurrentMediaInfo) {
+                    applyCurrentMediaInfo(media)
+                }
+
+                override fun onMediaSourceLost(packageName: String) {
+                    handleMediaSourceLost(packageName)
+                }
+
+                override fun onObservationError(message: String, error: Throwable) = Unit
+            }
+        ).also { observer ->
+            observer.start()
+        }
+        refreshSelectedCurrentMediaInfo()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -559,6 +655,9 @@ open class FloatingLyricsService : Service() {
         cancelPendingAutoHide()
         syncHandler.removeCallbacks(mediaRestoreRunnable)
         syncHandler.removeCallbacks(aodSettleRefreshRunnable)
+        cancelPendingStandaloneAodLaunch()
+        directMediaObserver?.stop()
+        directMediaObserver = null
         stopSelectedMediaObservation()
         displayScopeMonitor?.close()
         displayScopeMonitor = null

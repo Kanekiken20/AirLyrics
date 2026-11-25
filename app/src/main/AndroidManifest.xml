@@ -8,6 +8,7 @@
         tools:ignore="ForegroundServicesPolicy" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
@@ -73,6 +74,18 @@
 
         </activity>
 
+        <activity
+            android:name=".aod.LockScreenAodLyricsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:noHistory="true"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.AirLyrics.Aod"
+            android:turnScreenOn="true" />
+
         <service
             android:name=".lockscreen.LockScreenOverlayAccessibilityService"
             android:exported="true"
@@ -118,6 +131,9 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/fixed_lyrics_panel_info" />
+            <meta-data
+                android:name="SamsungBasicInteraction"
+                android:value="SEP10" />
         </receiver>
 
         <receiver
@@ -130,6 +146,9 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/airlyrics_aod_widget_info" />
+            <meta-data
+                android:name="SamsungBasicInteraction"
+                android:value="SEP10" />
         </receiver>
         <receiver
             android:name="com.andsi.airlyrics.lockscreen.AirLyricsDockWidgetProvider"
@@ -141,6 +160,9 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/airlyrics_dock_widget_info" />
+            <meta-data
+                android:name="SamsungBasicInteraction"
+                android:value="SEP10" />
         </receiver>
     </application>
 </manifest>

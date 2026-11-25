@@ -73,6 +73,7 @@ class LockScreenNotificationCardPublisher(
         // Bumped to v6 so Android creates a fresh channel with explicit VISIBILITY_PUBLIC
         // (modifying lockscreenVisibility on existing v5 is ignored by Android).
         const val CHANNEL_ID = "airlyrics_lockscreen_card_v6"
+        const val NOW_BAR_CHANNEL_ID = "airlyrics_now_bar_live_v1"
         const val NOTIFICATION_ID = 4024
         const val STANDALONE_GROUP_KEY = "airlyrics_standalone_card_4024"
         const val USE_DECORATED_STYLE = false
@@ -122,10 +123,13 @@ class LockScreenNotificationCardPublisher(
     @Volatile
     private var lastNotifyElapsedMs = 0L
 
+    @Volatile
+    private var lastPublishWasNowBar = false
+
     private val flushPendingRunnable = Runnable {
         val queued = pendingSnapshot ?: return@Runnable
         pendingSnapshot = null
-        publishInternal(queued, force = false)
+        publishInternal(queued, useNowBarLiveUpdates = lastPublishWasNowBar, force = false)
     }
 
     init {
@@ -144,21 +148,41 @@ class LockScreenNotificationCardPublisher(
 
     fun ensureNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        if (notificationManager.getNotificationChannel(CHANNEL_ID) != null) return
-
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Lock Screen Lyrics Card",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Standalone rounded lyrics card on the Lock Screen."
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            setSound(null, null)
-            enableVibration(false)
-            enableLights(false)
-            setShowBadge(false)
+        if (notificationManager.getNotificationChannel(CHANNEL_ID) == null) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Lock Screen Lyrics Card",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Standalone rounded lyrics card on the Lock Screen."
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setSound(null, null)
+                enableVibration(false)
+                enableLights(false)
+                setShowBadge(false)
+            }
+            notificationManager.createNotificationChannel(channel)
         }
-        notificationManager.createNotificationChannel(channel)
+        if (notificationManager.getNotificationChannel(NOW_BAR_CHANNEL_ID) == null) {
+            val nowBarChannel = NotificationChannel(
+                NOW_BAR_CHANNEL_ID,
+                "Now Bar & AOD Live Updates",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Android 16 / Samsung One UI 8.5 Now Bar live lyrics on Lock Screen & AOD."
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setSound(null, null)
+                enableVibration(false)
+                enableLights(false)
+                setShowBadge(false)
+            }
+            notificationManager.createNotificationChannel(nowBarChannel)
+        }
+    }
+
+    fun canPostPromotedLiveUpdates(): Boolean {
+        return Build.VERSION.SDK_INT >= 36 &&
+            runCatching { notificationManager.canPostPromotedNotifications() }.getOrDefault(false)
     }
 
     fun hasNotificationPermission(): Boolean {
@@ -170,6 +194,58 @@ class LockScreenNotificationCardPublisher(
             if (!granted) return false
         }
         return notificationManagerCompat.areNotificationsEnabled()
+    }
+
+    /**
+     * Builds an Android 16+ Promoted Ongoing Live Update for Samsung One UI 8.5 Now Bar (Lock Screen & AOD).
+     * Uses standard Notification.BigTextStyle without untemplated custom views so One UI promotes it natively
+     * without interfering with Samsung's stock media playback controls.
+     */
+    fun buildNowBarLiveUpdateNotification(snapshot: LockScreenLyricsSnapshot): Notification {
+        ensureNotificationChannel()
+        val trackMeta = formatTrackMeta(snapshot.trackTitle, snapshot.artistName)
+        val currentText = snapshot.currentLine.trim().ifBlank { "$MUSIC_NOTE $trackMeta" }
+        val chipText = buildShortNowBarChip(currentText)
+        val bodyLines = listOfNotNull(
+            snapshot.previousLine.trim().takeIf { it.isNotBlank() },
+            "\u266A $currentText",
+            snapshot.nextLine.trim().takeIf { it.isNotBlank() }
+        ).joinToString("\n")
+
+        val builder = Notification.Builder(context, NOW_BAR_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_airlyrics_note)
+            .setContentTitle(trackMeta)
+            .setContentText(currentText)
+            .setStyle(
+                Notification.BigTextStyle()
+                    .setBigContentTitle(trackMeta)
+                    .bigText(bodyLines.ifBlank { currentText })
+            )
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setShowWhen(false)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setCategory(Notification.CATEGORY_STATUS)
+            .setSortKey(SORT_KEY_TOP)
+            .setAutoCancel(false)
+
+        snapshot.albumArtAccentColor?.let { builder.setColor(it) }
+        buildContentPendingIntent()?.let { builder.setContentIntent(it) }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+        }
+        if (Build.VERSION.SDK_INT >= 36) {
+            builder.setRequestPromotedOngoing(true)
+            builder.setShortCriticalText(chipText)
+        }
+        return builder.build()
+    }
+
+    internal fun buildShortNowBarChip(currentLine: String): String {
+        val clean = currentLine.trim().replace(Regex("\\s+"), " ")
+        if (clean.isEmpty()) return MUSIC_NOTE
+        return if (clean.length <= 24) clean else clean.take(23).trimEnd() + "\u2026"
     }
 
     fun buildNotification(snapshot: LockScreenLyricsSnapshot): Notification {
@@ -213,14 +289,23 @@ class LockScreenNotificationCardPublisher(
         return builder.build()
     }
 
-    fun publish(snapshot: LockScreenLyricsSnapshot, force: Boolean = false): Boolean {
+    fun publish(
+        snapshot: LockScreenLyricsSnapshot,
+        force: Boolean = false,
+        useNowBarLiveUpdates: Boolean = false
+    ): Boolean {
         if (!hasNotificationPermission()) return false
-        if (!force && isPublished && snapshot.visuallyEquivalentTo(lastPublishedSnapshot)) return true
+        if (!force && isPublished && lastPublishWasNowBar == useNowBarLiveUpdates &&
+            snapshot.visuallyEquivalentTo(lastPublishedSnapshot)
+        ) {
+            return true
+        }
 
         val now = SystemClock.elapsedRealtime()
         val elapsed = now - lastNotifyElapsedMs
         if (!force && isPublished && elapsed < MIN_UPDATE_INTERVAL_MS) {
             // Coalesce rapid ticks so we stay <= 2.2 updates/sec (well below Android 16's 5.0/sec cap)
+            lastPublishWasNowBar = useNowBarLiveUpdates
             pendingSnapshot = snapshot
             mainHandler.removeCallbacks(flushPendingRunnable)
             mainHandler.postDelayed(flushPendingRunnable, MIN_UPDATE_INTERVAL_MS - elapsed)
@@ -229,15 +314,28 @@ class LockScreenNotificationCardPublisher(
 
         mainHandler.removeCallbacks(flushPendingRunnable)
         pendingSnapshot = null
-        return publishInternal(snapshot, force)
+        return publishInternal(snapshot, useNowBarLiveUpdates = useNowBarLiveUpdates, force = force)
     }
 
-    private fun publishInternal(snapshot: LockScreenLyricsSnapshot, force: Boolean): Boolean {
+    private fun publishInternal(
+        snapshot: LockScreenLyricsSnapshot,
+        useNowBarLiveUpdates: Boolean,
+        force: Boolean
+    ): Boolean {
         if (!hasNotificationPermission()) return false
-        if (!force && isPublished && snapshot.visuallyEquivalentTo(lastPublishedSnapshot)) return true
+        if (!force && isPublished && lastPublishWasNowBar == useNowBarLiveUpdates &&
+            snapshot.visuallyEquivalentTo(lastPublishedSnapshot)
+        ) {
+            return true
+        }
 
-        val notification = buildNotification(snapshot)
+        val notification = if (useNowBarLiveUpdates && Build.VERSION.SDK_INT >= 36) {
+            buildNowBarLiveUpdateNotification(snapshot)
+        } else {
+            buildNotification(snapshot)
+        }
         notificationManager.notify(NOTIFICATION_ID, notification)
+        lastPublishWasNowBar = useNowBarLiveUpdates
         lastPublishedSnapshot = snapshot
         lastNotifyElapsedMs = SystemClock.elapsedRealtime()
         isPublished = true

@@ -137,7 +137,8 @@ object CurrentMediaReader {
                 packageName,
                 metadata.getString(MediaMetadata.METADATA_KEY_MEDIA_ID),
                 metadata.getString(MediaMetadata.METADATA_KEY_MEDIA_URI)
-            )
+            ),
+            playbackSpeed = state?.playbackSpeed?.takeIf { it > 0f } ?: 1f,
         )
     }
 

@@ -109,13 +109,14 @@ class AirLyricsAodWidgetProvider : AppWidgetProvider() {
                 if (ids == null || ids.isEmpty()) return
 
                 val now = SystemClock.elapsedRealtime()
+                val interactiveChanged = lastVisualKey?.isInteractive != isInteractive
                 val minIntervalMs = if (isInteractive) MIN_INTERACTIVE_UPDATE_MS else MIN_AOD_DOZE_UPDATE_MS
                 val elapsed = now - lastUpdateElapsedMs
 
                 pendingRunnable?.let(mainHandler::removeCallbacks)
                 pendingRunnable = null
 
-                if (force || lastUpdateElapsedMs == 0L || elapsed >= minIntervalMs) {
+                if (force || interactiveChanged || lastUpdateElapsedMs == 0L || elapsed >= minIntervalMs) {
                     pushNowLocked(appContext, manager, ids, snapshot, visualKey, isInteractive)
                 } else {
                     val delayMs = (minIntervalMs - elapsed).coerceAtLeast(100L)
@@ -226,7 +227,6 @@ class AirLyricsAodWidgetProvider : AppWidgetProvider() {
             options: Bundle?
         ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_lockstar_aod_lyrics)
-            views.setInt(R.id.aod_widget_root, "setBackgroundColor", Color.TRANSPARENT)
 
             val fontPreset = AppSettingsStore.getLyricsFontPreset(context)
             val textScale = AppSettingsStore.getWidgetTextScalePercent(context) / 100f
@@ -235,7 +235,7 @@ class AirLyricsAodWidgetProvider : AppWidgetProvider() {
             val meta = listOf(snapshot.trackTitle.trim(), snapshot.artistName.trim())
                 .filter { it.isNotEmpty() }
                 .joinToString(" $BULLET ")
-            val prev = if (snapshot.isPlaying && isInteractive) snapshot.previousLine.trim() else ""
+            val prev = if (snapshot.isPlaying) snapshot.previousLine.trim() else ""
             val current = snapshot.currentLine.trim().ifEmpty {
                 if (snapshot.isPlaying && meta.isNotEmpty()) "$MUSIC_NOTE $meta" else "$MUSIC_NOTE AirLyrics"
             }
@@ -244,8 +244,8 @@ class AirLyricsAodWidgetProvider : AppWidgetProvider() {
             val renderedBitmap = if (isInteractive && fontPreset != AppSettingsStore.FONT_PRESET_DEFAULT) {
                 val widthDp = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 240)
                     ?.takeIf { it > 0 } ?: 240
-                val heightDp = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 140)
-                    ?.takeIf { it > 0 } ?: 140
+                val heightDp = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 150)
+                    ?.takeIf { it > 0 } ?: 150
                 WidgetLyricsBitmapRenderer.renderCard(
                     context = context,
                     meta = if (snapshot.isPlaying) meta else "",
@@ -262,16 +262,23 @@ class AirLyricsAodWidgetProvider : AppWidgetProvider() {
             }
 
             if (renderedBitmap != null) {
+                // Bitmap already renders the tinted 26dp One UI frosted squircle surface.
+                views.setInt(R.id.aod_widget_root, "setBackgroundColor", Color.TRANSPARENT)
                 views.setImageViewBitmap(R.id.iv_widget_styled_lyrics, renderedBitmap)
                 views.setViewVisibility(R.id.iv_widget_styled_lyrics, View.VISIBLE)
                 views.setViewVisibility(R.id.aod_widget_content, View.GONE)
             } else {
+                views.setInt(
+                    R.id.aod_widget_root,
+                    "setBackgroundResource",
+                    if (isInteractive) R.drawable.bg_oneui_widget_card else R.drawable.bg_oneui_widget_card_aod
+                )
                 views.setViewVisibility(R.id.iv_widget_styled_lyrics, View.GONE)
                 views.setViewVisibility(R.id.aod_widget_content, View.VISIBLE)
 
                 val density = context.resources.displayMetrics.density
-                val basePadH = (14f * density).roundToInt()
-                val basePadV = (10f * density).roundToInt()
+                val basePadH = (18f * density).roundToInt()
+                val basePadV = (14f * density).roundToInt()
                 val dx = (shiftXdp * density).roundToInt()
                 val dy = (shiftYdp * density).roundToInt()
                 views.setViewPadding(
@@ -282,19 +289,24 @@ class AirLyricsAodWidgetProvider : AppWidgetProvider() {
                     (basePadV - dy).coerceAtLeast(0)
                 )
 
+                val readablePrimary = resolveReadableForegroundColor(primaryColor, isInteractive)
                 // On AOD (!isInteractive), enforce 100% opaque bright tones so One UI's
                 // hardware AOD dimming never reduces translucent alpha text to invisibility.
                 val metaColor = if (isInteractive) {
-                    ColorUtils.setAlphaComponent(primaryColor, 190)
+                    ColorUtils.setAlphaComponent(readablePrimary, 195)
                 } else {
-                    Color.rgb(208, 208, 208)
+                    Color.rgb(200, 208, 222)
                 }
-                val prevColor = ColorUtils.setAlphaComponent(primaryColor, 140)
-                val currentColor = if (isInteractive) primaryColor else Color.WHITE
-                val nextColor = if (isInteractive) {
-                    ColorUtils.setAlphaComponent(primaryColor, 205)
+                val prevColor = if (isInteractive) {
+                    ColorUtils.setAlphaComponent(readablePrimary, 145)
                 } else {
-                    Color.rgb(224, 224, 224)
+                    Color.rgb(176, 184, 198)
+                }
+                val currentColor = if (isInteractive) readablePrimary else Color.WHITE
+                val nextColor = if (isInteractive) {
+                    ColorUtils.setAlphaComponent(readablePrimary, 210)
+                } else {
+                    Color.rgb(224, 229, 238)
                 }
 
                 if (meta.isNotEmpty() && snapshot.isPlaying) {
@@ -308,7 +320,7 @@ class AirLyricsAodWidgetProvider : AppWidgetProvider() {
 
                 if (prev.isNotEmpty()) {
                     views.setTextViewText(R.id.tv_aod_lyric_prev, prev)
-                    views.setTextViewTextSize(R.id.tv_aod_lyric_prev, TypedValue.COMPLEX_UNIT_SP, 13f * textScale)
+                    views.setTextViewTextSize(R.id.tv_aod_lyric_prev, TypedValue.COMPLEX_UNIT_SP, 12.5f * textScale)
                     views.setTextColor(R.id.tv_aod_lyric_prev, prevColor)
                     views.setViewVisibility(R.id.tv_aod_lyric_prev, View.VISIBLE)
                 } else {
@@ -316,12 +328,12 @@ class AirLyricsAodWidgetProvider : AppWidgetProvider() {
                 }
 
                 views.setTextViewText(R.id.tv_aod_lyric_current, current)
-                views.setTextViewTextSize(R.id.tv_aod_lyric_current, TypedValue.COMPLEX_UNIT_SP, 20f * textScale)
+                views.setTextViewTextSize(R.id.tv_aod_lyric_current, TypedValue.COMPLEX_UNIT_SP, 19f * textScale)
                 views.setTextColor(R.id.tv_aod_lyric_current, currentColor)
 
                 if (next.isNotEmpty()) {
                     views.setTextViewText(R.id.tv_aod_lyric_next, next)
-                    views.setTextViewTextSize(R.id.tv_aod_lyric_next, TypedValue.COMPLEX_UNIT_SP, 14f * textScale)
+                    views.setTextViewTextSize(R.id.tv_aod_lyric_next, TypedValue.COMPLEX_UNIT_SP, 13.5f * textScale)
                     views.setTextColor(R.id.tv_aod_lyric_next, nextColor)
                     views.setViewVisibility(R.id.tv_aod_lyric_next, View.VISIBLE)
                 } else {
@@ -341,6 +353,16 @@ class AirLyricsAodWidgetProvider : AppWidgetProvider() {
             }
 
             return views
+        }
+
+        private fun resolveReadableForegroundColor(color: Int, isInteractive: Boolean): Int {
+            if (!isInteractive) return Color.WHITE
+            val opaque = color or (0xFF shl 24)
+            return if (ColorUtils.calculateLuminance(opaque) < 0.35) {
+                ColorUtils.blendARGB(opaque, Color.WHITE, 0.55f)
+            } else {
+                opaque
+            }
         }
 
         private fun resolvePrimaryColor(

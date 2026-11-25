@@ -15,6 +15,7 @@ data class CurrentMediaInfo(
     val positionMs: Long,
     val snapshotSequence: Long = UNSPECIFIED_SNAPSHOT_SEQUENCE,
     val spotifyTrackId: String? = null,
+    val playbackSpeed: Float = 1f,
 ) {
     val isEmpty: Boolean
         get() = title.isBlank()

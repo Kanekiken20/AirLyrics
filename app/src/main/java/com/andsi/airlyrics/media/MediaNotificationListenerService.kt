@@ -76,9 +76,14 @@ class MediaNotificationListenerService : NotificationListenerService() {
     }
 
     private fun scheduleMediaSessionRescan() {
-        // Some players refresh sessions only after notification changes, so scan once after the burst.
+        if (!::mediaSessionObserver.isInitialized) return
+        // Query immediately without artificial 200ms polling delay; coalesce rapid bursts on the main looper.
         handler.removeCallbacks(rescanRunnable)
-        handler.postDelayed(rescanRunnable, MEDIA_SESSION_RESCAN_DELAY_MS)
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            mediaSessionObserver.refresh()
+        } else {
+            handler.post(rescanRunnable)
+        }
     }
 
     private fun cleanupMediaSessions() {
@@ -126,7 +131,6 @@ class MediaNotificationListenerService : NotificationListenerService() {
 
     companion object {
         private const val TAG = "MediaNotificationListenerService"
-        private const val MEDIA_SESSION_RESCAN_DELAY_MS = 200L
 
         @Volatile
         var activeMediaController: android.media.session.MediaController? = null

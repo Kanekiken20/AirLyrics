@@ -10,6 +10,8 @@ object AppSettingsStore {
     private const val KEY_STATUS_POPUPS_MUTED = "toaster_muted"
     private const val KEY_AOD_LYRICS_ENABLED = "aod_lyrics_enabled"
     private const val KEY_AOD_SCROLL_ENABLED = "aod_horizontal_scroll"
+    private const val KEY_STANDALONE_AOD_SCREEN_ENABLED = "standalone_aod_screen_enabled"
+    private const val KEY_NOW_BAR_LIVE_UPDATES_ENABLED = "now_bar_live_updates_enabled"
     private const val KEY_LOCK_SCREEN_CARD_ENABLED = "lock_screen_card_enabled"
     private const val KEY_SUPPRESS_LOCK_NOTIFS = "suppress_lock_screen_notifications"
     private const val KEY_FLOATING_COLLAPSED_SIDE = "floating_collapsed_side"
@@ -57,6 +59,24 @@ object AppSettingsStore {
 
     fun setAodHorizontalScrollEnabled(context: Context, enabled: Boolean) {
         store(context).setBoolean(KEY_AOD_SCROLL_ENABLED, enabled)
+    }
+
+    /** Optional standalone AMOLED clock + lyrics AOD Activity (strictly OFF by default). */
+    fun isStandaloneAodScreenEnabled(context: Context): Boolean {
+        return store(context).getBoolean(KEY_STANDALONE_AOD_SCREEN_ENABLED, false)
+    }
+
+    fun setStandaloneAodScreenEnabled(context: Context, enabled: Boolean) {
+        store(context).setBoolean(KEY_STANDALONE_AOD_SCREEN_ENABLED, enabled)
+    }
+
+    /** Android 16+ Live Updates / Samsung One UI 8.5 Now Bar promoted ongoing notifications. */
+    fun isNowBarLiveUpdatesEnabled(context: Context): Boolean {
+        return store(context).getBoolean(KEY_NOW_BAR_LIVE_UPDATES_ENABLED, true)
+    }
+
+    fun setNowBarLiveUpdatesEnabled(context: Context, enabled: Boolean) {
+        store(context).setBoolean(KEY_NOW_BAR_LIVE_UPDATES_ENABLED, enabled)
     }
 
     fun isLockScreenCardEnabled(context: Context): Boolean {

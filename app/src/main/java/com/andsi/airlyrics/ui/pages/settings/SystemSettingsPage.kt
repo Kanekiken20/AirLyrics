@@ -39,6 +39,8 @@ internal fun createSystemSettingsPage(activity: MainUiHost, animateChildren: Boo
     container.addView(languageChoiceCard(activity))
     container.addView(statusPopupsMuteCard(activity))
     container.addView(aodLyricsCard(activity))
+    container.addView(nowBarLiveUpdatesCard(activity))
+    container.addView(standaloneAodScreenCard(activity))
     container.addView(lockScreenWidgetStyleCard(activity))
 
     container.addView(systemPermissionCard())
@@ -104,6 +106,137 @@ private fun aodLyricsCard(activity: MainUiHost): View = with(activity) aodLyrics
         }
         setOnClickListener {
             aodLyricsSwitch.isChecked = !aodLyricsSwitch.isChecked
+        }
+    }
+}
+
+private fun nowBarLiveUpdatesCard(activity: MainUiHost): View = with(activity) nowBarLiveUpdatesCard@ {
+    val liveUpdatesSwitch = SwitchCompat(activity).apply {
+        isChecked = AppSettingsStore.isNowBarLiveUpdatesEnabled(activity)
+        applyAirThemeTint(activity)
+        contentDescription = "Now Bar Live Updates"
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+    }
+
+    val statusHint = if (android.os.Build.VERSION.SDK_INT >= 36) {
+        val nm = activity.getSystemService(android.app.NotificationManager::class.java)
+        val promoted = runCatching { nm?.canPostPromotedNotifications() == true }.getOrDefault(false)
+        if (promoted) {
+            "Promotes live lyrics into Samsung One UI 8.5 Now Bar on Lock Screen & native AOD without replacing your media player (Live Updates active)."
+        } else {
+            "Promotes live lyrics into Samsung One UI 8.5 Now Bar on Lock Screen & native AOD. Tap settings below if Live Notifications permission is disabled."
+        }
+    } else {
+        "Android 16+ Live Updates (Now Bar) integration for Samsung One UI 8.5 Lock Screen & native AOD."
+    }
+
+    return card(activity) {
+        orientation = LinearLayout.VERTICAL
+
+        addView(LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            isFocusable = true
+            enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+
+            addView(LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(0, 0, dp(AirUiTokens.Space.Xl + AirUiTokens.Space.Lg), 0)
+                }
+                addView(bigText(activity, "One UI 8.5 Now Bar Live Updates (AOD)"))
+                addView(smallHint(activity, statusHint))
+            })
+
+            addView(liveUpdatesSwitch)
+
+            liveUpdatesSwitch.setOnCheckedChangeListener { _, checked ->
+                AppSettingsStore.setNowBarLiveUpdatesEnabled(activity, checked)
+                activity.sendBroadcast(
+                    Intent(AppSettingsStore.ACTION_STYLE_PREF_CHANGED)
+                        .setPackage(activity.packageName)
+                )
+            }
+            setOnClickListener {
+                liveUpdatesSwitch.isChecked = !liveUpdatesSwitch.isChecked
+            }
+        })
+
+        if (android.os.Build.VERSION.SDK_INT >= 36) {
+            val nm = activity.getSystemService(android.app.NotificationManager::class.java)
+            val promoted = runCatching { nm?.canPostPromotedNotifications() == true }.getOrDefault(false)
+            if (!promoted) {
+                addView(TextView(activity).apply {
+                    text = "Allow Live Notifications in System Settings"
+                    textSize = AirUiTokens.TextSize.Caption
+                    typeface = Typeface.DEFAULT_BOLD
+                    setTextColor(colorAccentText)
+                    setPadding(0, dp(AirUiTokens.Space.Lg), 0, 0)
+                    setOnClickListener {
+                        runCatching {
+                            activity.startActivity(
+                                Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS).apply {
+                                    putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)
+                                }
+                            )
+                        }.onFailure {
+                            runCatching {
+                                activity.startActivity(
+                                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                        putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                })
+            }
+        }
+    }
+}
+
+private fun standaloneAodScreenCard(activity: MainUiHost): View = with(activity) standaloneAodScreenCard@ {
+    val standaloneSwitch = SwitchCompat(activity).apply {
+        isChecked = AppSettingsStore.isStandaloneAodScreenEnabled(activity)
+        applyAirThemeTint(activity)
+        contentDescription = "Standalone Lyrics AOD Screen"
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+    }
+
+    return card(activity) {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        isClickable = true
+        isFocusable = true
+        enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)
+
+        addView(LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                setMargins(0, 0, dp(AirUiTokens.Space.Xl + AirUiTokens.Space.Lg), 0)
+            }
+            addView(bigText(activity, "Standalone Lyrics AOD Screen"))
+            addView(smallHint(activity, "Optional full-screen black AMOLED AOD with One UI Clock & centered lyrics (OFF by default so native Lock Screen & Samsung AOD remain untouched)."))
+        })
+
+        addView(standaloneSwitch)
+
+        standaloneSwitch.setOnCheckedChangeListener { _, checked ->
+            AppSettingsStore.setStandaloneAodScreenEnabled(activity, checked)
+            activity.sendBroadcast(
+                Intent(AppSettingsStore.ACTION_STYLE_PREF_CHANGED)
+                    .setPackage(activity.packageName)
+            )
+        }
+        setOnClickListener {
+            standaloneSwitch.isChecked = !standaloneSwitch.isChecked
         }
     }
 }

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RectF
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
@@ -17,13 +18,14 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Renders crisp, Binder-safe (<500 KB) anti-aliased custom-font lyric bitmaps for interactive
- * Lock Screen AppWidgets when Spotify (Figtree) or Apple Music (Inter) is selected.
+ * Renders crisp, Binder-safe (<500 KB) anti-aliased custom-font lyric bitmaps inside a
+ * native-looking One UI 26dp squircle container for interactive Lock Screen / Home widgets
+ * when Spotify (Figtree) or Apple Music (Inter) is selected.
  * Never used on Always-On Display (AOD), where pure native TextViews are enforced.
  */
 internal object WidgetLyricsBitmapRenderer {
-    private const val MAX_CARD_WIDTH_PX = 520
-    private const val MAX_CARD_HEIGHT_PX = 290
+    private const val MAX_CARD_WIDTH_PX = 540
+    private const val MAX_CARD_HEIGHT_PX = 340
     private const val MAX_DOCK_WIDTH_PX = 440
     private const val MAX_DOCK_HEIGHT_PX = 56
 
@@ -40,16 +42,16 @@ internal object WidgetLyricsBitmapRenderer {
     ): Bitmap? = runCatching {
         val density = context.resources.displayMetrics.density
         val renderScale = min(density, 1.85f)
-        val widthPx = (widthDp.coerceIn(160, 320) * renderScale)
+        val widthPx = (widthDp.coerceIn(180, 340) * renderScale)
             .roundToInt()
-            .coerceIn(220, MAX_CARD_WIDTH_PX)
-        val maxHeightPx = (heightDp.coerceIn(96, 220) * renderScale)
+            .coerceIn(260, MAX_CARD_WIDTH_PX)
+        val maxHeightPx = (heightDp.coerceIn(110, 240) * renderScale)
             .roundToInt()
-            .coerceIn(120, MAX_CARD_HEIGHT_PX)
+            .coerceIn(160, MAX_CARD_HEIGHT_PX)
 
-        val padH = (12f * renderScale).roundToInt()
-        val padV = (8f * renderScale).roundToInt()
-        val contentWidth = (widthPx - padH * 2).coerceAtLeast(80)
+        val padH = (18f * renderScale).roundToInt()
+        val padV = (15f * renderScale).roundToInt()
+        val contentWidth = (widthPx - padH * 2).coerceAtLeast(100)
         val preset = AppSettingsStore.getLyricsFontPreset(context)
 
         val boldFace = FloatingLyricsFontStore.resolveWidgetTypeface(context, isBold = true)
@@ -67,14 +69,14 @@ internal object WidgetLyricsBitmapRenderer {
                 this.color = color
                 typeface = if (bold) boldFace else regularFace
                 fontVariationSettings = "'wght' ${if (bold) boldWeight else regularWeight}"
-                setShadowLayer(3.5f, 0f, 1.5f, 0xCC000000.toInt())
+                setShadowLayer(2.5f, 0f, 1f, 0x99000000.toInt())
             }
         }
 
         fun layoutOf(text: String, paint: TextPaint, maxLines: Int, lineMult: Float): StaticLayout {
             return StaticLayout.Builder.obtain(text, 0, text.length, paint, contentWidth)
                 .setAlignment(Layout.Alignment.ALIGN_CENTER)
-                .setIncludePad(false)
+                .setIncludePad(true)
                 .setLineSpacing(0f, lineMult)
                 .setEllipsize(TextUtils.TruncateAt.END)
                 .setMaxLines(maxLines)
@@ -83,33 +85,58 @@ internal object WidgetLyricsBitmapRenderer {
 
         val blocks = mutableListOf<Pair<StaticLayout, Int>>()
         val gapSmall = (6f * renderScale).roundToInt()
-        val gapMedium = (8f * renderScale).roundToInt()
+        val gapMedium = (9f * renderScale).roundToInt()
+
+        val opaquePrimary = primaryColor or (0xFF shl 24)
+        // Guarantee high readable foreground contrast on the dark frosted squircle surface
+        val activeTextColor = if (ColorUtils.calculateLuminance(opaquePrimary) < 0.35) {
+            ColorUtils.blendARGB(opaquePrimary, Color.WHITE, 0.55f)
+        } else {
+            opaquePrimary
+        }
 
         if (meta.isNotEmpty()) {
-            val paint = buildPaint(11.5f, ColorUtils.setAlphaComponent(primaryColor, 185), bold = false)
-            blocks += layoutOf(meta, paint, 1, 1.05f) to gapMedium
+            val paint = buildPaint(11f, ColorUtils.setAlphaComponent(activeTextColor, 195), bold = false)
+            blocks += layoutOf(meta, paint, 1, 1.08f) to gapMedium
         }
         if (previousLine.isNotEmpty()) {
-            val paint = buildPaint(13f, ColorUtils.setAlphaComponent(primaryColor, 130), bold = false)
-            blocks += layoutOf(previousLine, paint, 1, 1.1f) to gapSmall
+            val paint = buildPaint(12.5f, ColorUtils.setAlphaComponent(activeTextColor, 138), bold = false)
+            blocks += layoutOf(previousLine, paint, 1, 1.12f) to gapSmall
         }
         if (currentLine.isNotEmpty()) {
-            val paint = buildPaint(20f, primaryColor or (0xFF shl 24), bold = true)
-            blocks += layoutOf(currentLine, paint, 3, 1.14f) to gapSmall
+            val paint = buildPaint(19f, activeTextColor, bold = true)
+            blocks += layoutOf(currentLine, paint, 3, 1.16f) to gapSmall
         }
         if (nextLine.isNotEmpty()) {
-            val paint = buildPaint(14f, ColorUtils.setAlphaComponent(primaryColor, 200), bold = false)
-            blocks += layoutOf(nextLine, paint, 2, 1.1f) to 0
+            val paint = buildPaint(13.5f, ColorUtils.setAlphaComponent(activeTextColor, 205), bold = false)
+            blocks += layoutOf(nextLine, paint, 2, 1.12f) to 0
         }
         if (blocks.isEmpty()) return null
 
+        val descenderSafetyPx = (4f * renderScale).roundToInt()
         val totalContentHeight = blocks.sumOf { (layout, gap) -> layout.height + gap } -
-            blocks.last().second
-        val bitmapHeight = (totalContentHeight + padV * 2).coerceIn(80, maxHeightPx)
+            blocks.last().second + descenderSafetyPx
+        val bitmapHeight = (totalContentHeight + padV * 2).coerceIn(130, maxHeightPx)
 
         val bitmap = Bitmap.createBitmap(widthPx, bitmapHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.TRANSPARENT)
+
+        // Subtle One UI 26dp squircle surface softly tinted by album art / manual accent
+        val radius = 26f * renderScale
+        val cardRect = RectF(1f, 1f, widthPx - 1f, bitmapHeight - 1f)
+        val tintBase = ColorUtils.blendARGB(Color.rgb(18, 22, 34), opaquePrimary, 0.14f)
+        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+            color = ColorUtils.setAlphaComponent(tintBase, 220)
+        }
+        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 1.2f * renderScale
+            color = ColorUtils.setAlphaComponent(ColorUtils.blendARGB(Color.WHITE, opaquePrimary, 0.3f), 54)
+        }
+        canvas.drawRoundRect(cardRect, radius, radius, fillPaint)
+        canvas.drawRoundRect(cardRect, radius, radius, strokePaint)
 
         var y = ((bitmapHeight - totalContentHeight) / 2f).coerceAtLeast(padV.toFloat())
         blocks.forEachIndexed { index, (layout, gap) ->
@@ -132,9 +159,9 @@ internal object WidgetLyricsBitmapRenderer {
         val density = context.resources.displayMetrics.density
         val renderScale = min(density, 1.85f)
         val widthPx = MAX_DOCK_WIDTH_PX
-        val heightPx = (24f * textScale.coerceIn(0.85f, 1.3f) * renderScale)
+        val heightPx = (26f * textScale.coerceIn(0.85f, 1.3f) * renderScale)
             .roundToInt()
-            .coerceIn(32, MAX_DOCK_HEIGHT_PX)
+            .coerceIn(34, MAX_DOCK_HEIGHT_PX)
         val preset = AppSettingsStore.getLyricsFontPreset(context)
         val boldWeight = if (preset == AppSettingsStore.FONT_PRESET_SPOTIFY) 700 else 600
 
@@ -151,7 +178,7 @@ internal object WidgetLyricsBitmapRenderer {
 
         val layout = StaticLayout.Builder.obtain(line, 0, line.length, paint, widthPx)
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .setIncludePad(false)
+            .setIncludePad(true)
             .setEllipsize(TextUtils.TruncateAt.END)
             .setMaxLines(1)
             .build()

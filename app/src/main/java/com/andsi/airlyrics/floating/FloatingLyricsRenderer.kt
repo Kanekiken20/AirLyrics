@@ -93,11 +93,12 @@ class FloatingLyricsRenderer(
     private var currentPositionMs: Long = 0L
     private var lastPositionUpdateUptimeMs: Long = 0L
     private var currentIsPlaying: Boolean = false
+    private var currentPlaybackSpeed: Float = 1f
     private var lyricsOffsetMs: Long = 0L
     private var currentMessage: (() -> String)? = null
     internal var lastRenderedText: String? = null
 
-    fun updatePlayback(positionMs: Long, isPlaying: Boolean) {
+    fun updatePlayback(positionMs: Long, isPlaying: Boolean, playbackSpeed: Float = 1f) {
         val nowUptimeMs = uptimeMillisProvider()
         val incomingPositionMs = positionMs.coerceAtLeast(0L)
         val estimatedBeforeUpdateMs = getEstimatedPlaybackPositionMs(nowUptimeMs)
@@ -107,6 +108,7 @@ class FloatingLyricsRenderer(
             incomingPositionMs
         }
         currentIsPlaying = isPlaying
+        currentPlaybackSpeed = playbackSpeed.takeIf { it > 0f } ?: 1f
         lastPositionUpdateUptimeMs = nowUptimeMs
         updateSpicyPlayback()
     }
@@ -159,6 +161,7 @@ class FloatingLyricsRenderer(
         currentPositionMs = 0L
         lastPositionUpdateUptimeMs = 0L
         currentIsPlaying = false
+        currentPlaybackSpeed = 1f
         lyricsOffsetMs = 0L
         currentMessage = null
         lastRenderedText = null
@@ -900,8 +903,8 @@ class FloatingLyricsRenderer(
             return currentPositionMs.coerceAtLeast(0L)
         }
 
-        val elapsedMs = nowUptimeMs - lastPositionUpdateUptimeMs
-        return (currentPositionMs + elapsedMs.coerceAtLeast(0L)).coerceAtLeast(0L)
+        val elapsedMs = (nowUptimeMs - lastPositionUpdateUptimeMs).coerceAtLeast(0L)
+        return (currentPositionMs + (elapsedMs * currentPlaybackSpeed).toLong()).coerceAtLeast(0L)
     }
 
     private fun isStalePlayingBacktrack(

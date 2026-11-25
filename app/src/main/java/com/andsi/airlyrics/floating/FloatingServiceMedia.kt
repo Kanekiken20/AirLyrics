@@ -68,7 +68,8 @@ internal fun FloatingLyricsService.applyCurrentMediaInfo(media: CurrentMediaInfo
 
     renderer.updatePlayback(
         positionMs = media.positionMs,
-        isPlaying = media.isPlaying
+        isPlaying = media.isPlaying,
+        playbackSpeed = media.playbackSpeed
     )
     renderer.setLyricsOffset(LyricsOffsetStore.getOffsetMs(this, media.toSongIdentity()))
     reevaluateAutoHide()
@@ -198,7 +199,7 @@ internal fun FloatingLyricsService.selectMediaSource(packageName: String?) {
         return
     }
 
-    if (isWindowControllerReady() && windowController.isVisible) {
+    if (shouldObserveSelectedMedia()) {
         startSelectedMediaObservation()
         if (currentMedia.isEmpty) {
             scheduleCurrentMediaRestore()
