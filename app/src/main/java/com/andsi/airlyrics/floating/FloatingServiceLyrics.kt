@@ -20,7 +20,8 @@ import com.andsi.airlyrics.settings.store.LyricsSettingsStore
 
 internal fun FloatingLyricsService.shouldSyncLyrics(): Boolean {
     return isWindowControllerReady() &&
-        (windowController.isContentVisible || shouldPresentLockScreenLyrics() || shouldPresentFixedLyricsPanel())
+        (windowController.isContentVisible || shouldPresentLockScreenLyrics() || shouldPresentFixedLyricsPanel() ||
+            shouldPresentAodScreen() || shouldPresentInAppPreview())
 }
 
 internal fun FloatingLyricsService.startLyricsSync() {
@@ -109,7 +110,9 @@ internal fun FloatingLyricsService.loadLyricsForSong(
     media: CurrentMediaInfo,
     lookupRequestKey: LyricsLookupRequestKey,
 ) {
-    if (!isInteractiveLyricsScreen() || !com.andsi.airlyrics.settings.store.QuickFloatingStore.isDesiredVisible(this)) {
+    val interactive = isInteractiveLyricsScreen()
+    val panelAmbientAllowed = !interactive && shouldPresentFixedLyricsPanel()
+    if ((!interactive && !panelAmbientAllowed) || !com.andsi.airlyrics.settings.store.QuickFloatingStore.isDesiredVisible(this)) {
         pendingLyricsMedia = media
         lyricsLookupRunner.cancelActive()
         activeLyricsLookupRequestKey = null
@@ -117,8 +120,10 @@ internal fun FloatingLyricsService.loadLyricsForSong(
         markLyricsLoading(media.playbackLyricsKey())
         return
     }
-    pendingLyricsMedia = null
-    val suppressAutomaticOnlineLookup = isAutomaticOnlineLookupSuppressed(media)
+    // Keep track pending when ambient-only local lookup fails and online search is allowed on wake.
+    pendingLyricsMedia = if (panelAmbientAllowed && !isAutomaticOnlineLookupSuppressed(media) &&
+        LyricsSettingsStore.isAutoSearchOnlineEnabled(this)) media else null
+    val suppressAutomaticOnlineLookup = !interactive || isAutomaticOnlineLookupSuppressed(media)
     val lookupSettings = LyricsSettingsStore.getSettings(this).let { settings ->
         if (suppressAutomaticOnlineLookup) {
             settings.copy(autoSearchOnline = false)
@@ -183,14 +188,24 @@ internal fun FloatingLyricsService.applyLyricsResult(
             emptyText = { getString(R.string.ui_parsed_lyrics_are_empty) + "\n" + media.displayText }
         )
         if (availability == ParsedLyricsAvailability.AVAILABLE) {
+            if (pendingLyricsMedia?.playbackLyricsKey() == media.playbackLyricsKey()) {
+                pendingLyricsMedia = null
+            }
             markLyricsAvailable(media.playbackLyricsKey())
+            scheduleNextLyricsSync()
+            publishLockScreenLine()
         } else {
             markLyricsUnavailable(media.playbackLyricsKey())
+            scheduleNextLyricsSync()
         }
-        scheduleNextLyricsSync()
         return
     }
 
+    if (!isInteractiveLyricsScreen() && shouldPresentFixedLyricsPanel()) {
+        renderer.clear()
+        publishLockScreenLine()
+        return
+    }
     renderer.clear()
     renderer.show { lookupFailureText(result.exceptionOrNull(), media) }
     markLyricsUnavailable(media.playbackLyricsKey())

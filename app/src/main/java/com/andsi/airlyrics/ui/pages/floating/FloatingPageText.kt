@@ -1,5 +1,6 @@
 package com.andsi.airlyrics.ui.pages.floating
 
+import com.andsi.airlyrics.R
 import android.graphics.Color
 import android.graphics.Typeface
 import android.text.SpannableStringBuilder
@@ -23,6 +24,12 @@ internal data class FloatingPreviewLyricLine(
     val translation: String,
     val isCurrent: Boolean
 )
+
+internal fun MainUiHost.floatingVisibilityActionLabel(): Int = when {
+    quickFloatingDesiredVisible -> R.string.ui_floating_hide_lyrics
+    !overlayPermissionGranted -> R.string.ui_permit
+    else -> R.string.ui_floating_show_lyrics
+}
 
 internal fun MainUiHost.floatingSectionTitle(title: CharSequence): TextView {
     return TextView(this).apply {

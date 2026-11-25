@@ -23,7 +23,9 @@ internal fun FloatingLyricsService.shouldObserveSelectedMedia(): Boolean {
 /** Media callbacks remain primary. Only visible, playing surfaces have a sparse recovery poll. */
 internal fun FloatingLyricsService.shouldPollSelectedMedia(): Boolean =
     shouldObserveSelectedMedia() && currentMedia.isPlaying && !currentMedia.isEmpty &&
-        (windowController.isContentVisible || shouldPresentLockScreenLyrics() || shouldPresentFixedLyricsPanel()) && isInteractiveLyricsScreen()
+        (windowController.isContentVisible || shouldPresentInAppPreview() ||
+            shouldPresentLockScreenLyrics() || shouldPresentFixedLyricsPanel() || shouldPresentAodScreen()) &&
+        isInteractiveLyricsScreen()
 
 internal fun FloatingLyricsService.startSelectedMediaObservation() {
     if (!shouldObserveSelectedMedia()) {

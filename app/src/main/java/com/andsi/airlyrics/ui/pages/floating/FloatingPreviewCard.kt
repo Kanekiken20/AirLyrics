@@ -1,6 +1,7 @@
 package com.andsi.airlyrics.ui.pages.floating
 
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -10,16 +11,19 @@ import android.widget.TextView
 import com.andsi.airlyrics.R
 import com.andsi.airlyrics.ui.model.MainUiHost
 import com.andsi.airlyrics.core.model.FloatingLyricsStyle
+import com.andsi.airlyrics.design.tokens.AirUiTokens
 import com.andsi.airlyrics.ui.components.enableSoftPressFeedback
 import com.andsi.airlyrics.ui.components.playTinyPulse
 import com.andsi.airlyrics.ui.components.softLayoutTransition
 import com.andsi.airlyrics.ui.theme.colorTextMuted
+import com.andsi.airlyrics.ui.theme.colorCard
+import com.andsi.airlyrics.ui.theme.colorStroke
 
 internal data class FloatingPreviewCardHandle(
     val cardView: View,
     val lyricTextView: TextView,
     val bodyView: View,
-    val updateText: (CharSequence) -> Unit,
+    val updateText: (CharSequence, CharSequence) -> Unit,
     val updateFold: (Boolean) -> Unit
 )
 
@@ -30,6 +34,7 @@ internal fun MainUiHost.createFloatingPreviewCard(
     isWordByWordLyricsEnabled: () -> Boolean,
     plainPreviewText: () -> CharSequence,
     wordByWordPreviewText: () -> CharSequence,
+    compactPreviewText: () -> CharSequence,
     onVisibilityChanged: () -> Unit = {}
 ): FloatingPreviewCardHandle {
     lateinit var handle: FloatingPreviewCardHandle
@@ -37,11 +42,12 @@ internal fun MainUiHost.createFloatingPreviewCard(
     lateinit var toggleView: TextView
     var compactExpanded = interactions.read("floating.preview.compact")?.getBoolean("expanded") ?: false
     var fullText = if (isWordByWordLyricsEnabled()) wordByWordPreviewText() else plainPreviewText()
+    var compactText = compactPreviewText()
     var displayedCompact: Boolean? = null
 
     fun renderText(compact: Boolean) {
-        val end = fullText.indexOf('\n').takeIf { it >= 0 } ?: fullText.length
-        updateFloatingPreviewText(lyricView, if (compact) fullText.subSequence(0, end) else fullText)
+        val end = compactText.indexOf('\n').takeIf { it >= 0 } ?: compactText.length
+        updateFloatingPreviewText(lyricView, if (compact) compactText.subSequence(0, end) else fullText)
         displayedCompact = compact
     }
 
@@ -98,8 +104,13 @@ internal fun MainUiHost.createFloatingPreviewCard(
             super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         }
     }.apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.END or Gravity.CENTER_VERTICAL
+        orientation = LinearLayout.VERTICAL
+        background = GradientDrawable().apply {
+            cornerRadius = dp(AirUiTokens.Radius.Card).toFloat()
+            setColor(colorCard)
+            setStroke(dp(AirUiTokens.Stroke.Hairline), colorStroke)
+        }
+        setPadding(dp(12), 0, dp(12), dp(12))
         layoutTransition = softLayoutTransition()
         layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -112,15 +123,12 @@ internal fun MainUiHost.createFloatingPreviewCard(
             style()
         ).apply {
             layoutParams = LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                1f
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
             maxLines = Int.MAX_VALUE
             includeFontPadding = false
         }
-        addView(lyricView)
-
         toggleView = TextView(this@createFloatingPreviewCard).apply {
             textSize = FloatingPageTokens.PREVIEW_TOGGLE_TEXT_SP
             typeface = Typeface.DEFAULT
@@ -134,15 +142,27 @@ internal fun MainUiHost.createFloatingPreviewCard(
             enableSoftPressFeedback(0.92f)
             setOnClickListener { togglePreview() }
         }
-        addView(toggleView)
+        addView(LinearLayout(this@createFloatingPreviewCard).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(TextView(this@createFloatingPreviewCard).apply {
+                setText(R.string.ui_floating_preview)
+                setTextColor(colorTextMuted)
+                textSize = AirUiTokens.TextSize.BodySmall
+                typeface = Typeface.DEFAULT_BOLD
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(toggleView)
+        })
+        addView(lyricView)
     }
 
     handle = FloatingPreviewCardHandle(
         cardView = card,
         lyricTextView = lyricView,
         bodyView = lyricView,
-        updateText = { text ->
+        updateText = { text, current ->
             fullText = text
+            compactText = current
             renderText(windowLayout.compact && !compactExpanded)
         },
         updateFold = { expanded ->

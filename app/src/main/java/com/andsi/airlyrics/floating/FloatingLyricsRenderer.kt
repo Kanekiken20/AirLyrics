@@ -25,6 +25,8 @@ import com.andsi.airlyrics.core.model.LyricsLineDisplayMode
 import com.andsi.airlyrics.core.model.LyricsSwitchAnimationMode
 import com.andsi.airlyrics.core.model.WordByWordAnimationMode
 import com.andsi.airlyrics.core.model.LyricsGlowStyle
+import com.andsi.airlyrics.core.model.LyricPreview
+import com.andsi.airlyrics.core.model.LyricPreviewLine
 import com.andsi.airlyrics.design.tokens.AirUiTokens
 import kotlin.math.roundToInt
 
@@ -76,24 +78,45 @@ class FloatingLyricsRenderer(
         val position = getEstimatedPositionMs()
         val index = LrcParser.findCurrentIndex(currentPlainLines, position)
         val line = index?.let { currentPlainLines.getOrNull(it) }
+        val preview = if (index != null && line != null && !line.isMetadata) {
+            fun neighbor(step: Int): LyricPreviewLine? {
+                var candidate = index + step
+                while (candidate in currentPlainLines.indices) {
+                    val next = currentPlainLines[candidate]
+                    if (!next.isMetadata && next.timeMs != line.timeMs && next.text.isNotBlank()) {
+                        return LyricPreviewLine(next.text, next.translation.orEmpty())
+                    }
+                    candidate += step
+                }
+                return null
+            }
+            line.text.takeIf(String::isNotBlank)?.let {
+                LyricPreview(LyricPreviewLine(it, line.translation.orEmpty()), neighbor(-1), neighbor(1))
+            }
+        } else if (currentPlainLines.isEmpty() && wordByWordLyricsEnabledProvider()) {
+            findCurrentWordByWordIndex(position)?.let { wordIndex ->
+                fun lineAt(at: Int) = currentWordByWordLines.getOrNull(at)?.let(::wordByWordOriginalText)
+                    ?.takeIf(String::isNotBlank)?.let { LyricPreviewLine(it, "") }
+                lineAt(wordIndex)?.let { LyricPreview(it, lineAt(wordIndex - 1), lineAt(wordIndex + 1)) }
+            }
+        } else null
         val text = if (line != null && !line.isMetadata) {
             PlainLyricsDisplayFormatter.format(
                 currentPlainLines, index, contentModeProvider(), scriptPreferenceProvider(),
                 LyricsLineDisplayMode.CURRENT_ONLY, noTranslationTextProvider()
             ).toString()
-        } else if (currentPlainLines.isEmpty() && wordByWordLyricsEnabledProvider()) {
-            findCurrentWordByWordIndex(position)?.let { currentWordByWordLines[it] }
-                ?.let { word -> LyricsDisplayPolicy.render(contentModeProvider(),
-                    wordByWordOriginalText(word), "", scriptPreferenceProvider()).let { rendered ->
-                    listOfNotNull(rendered.primary, rendered.secondary).joinToString("\n")
-                } }
-        } else null
+        } else preview?.current?.let { renderSnapshotLine(it) }
         val creditedLine = text?.takeIf { it.isNotBlank() }?.let { body ->
             access?.attribution?.let { "$body\n${it.displayText()}" } ?: body
         }
         return LyricsLineSnapshot(creditedLine, index, position, currentIsPlaying,
-            access?.attribution?.displayText()?.toString())
+            access?.attribution?.displayText()?.toString(),
+            preview?.previous?.let(::renderSnapshotLine), preview?.next?.let(::renderSnapshotLine), preview)
     }
+
+    private fun renderSnapshotLine(line: LyricPreviewLine): String? =
+        LyricsDisplayPolicy.render(contentModeProvider(), line.original, line.translation, scriptPreferenceProvider())
+            .primary.trim().takeIf(String::isNotBlank)
 
     /** A single predicted boundary; null means idle until a playback/content event. */
     internal fun nextPresentationDelayMs(animateWords: Boolean): Long? {
@@ -802,7 +825,7 @@ class FloatingLyricsRenderer(
                 text = text,
                 textKey = textKey,
                 initialTranslationYDp = AirUiTokens.Layout.LyricsSlideDistanceDp.toFloat(),
-                initialScale = AirUiTokens.Motion.RestScale,
+                initialScale = AirUiTokens.Layout.LyricsScaleStart,
                 durationMs = AirUiTokens.Layout.LyricsSlideMs
             )
 

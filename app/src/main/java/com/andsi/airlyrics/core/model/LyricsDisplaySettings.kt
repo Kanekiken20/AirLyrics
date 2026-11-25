@@ -12,6 +12,10 @@ enum class LockScreenLyricPrivacy(val key: String) {
     }
 }
 
+enum class LyricPanelTypeface {
+    SYSTEM, SPOTIFY, APPLE_MUSIC
+}
+
 data class LyricsDisplaySettings(
     val enabled: Boolean = false,
     val privacy: LockScreenLyricPrivacy = LockScreenLyricPrivacy.PRIVATE,
@@ -20,7 +24,18 @@ data class LyricsDisplaySettings(
     val minimalMotion: Boolean = false,
     val panelEnabled: Boolean = false,
     val panelAlbumColors: Boolean = true,
-    val panelTransparent: Boolean = true,
+    val panelTransparent: Boolean = false,
     val panelTextColor: Int = 0xFFF4F5F8.toInt(),
-    val panelBackgroundColor: Int = 0xFF202127.toInt()
-)
+    val panelBackgroundColor: Int = 0xFF202127.toInt(),
+    val panelTextSizeSp: Int = DEFAULT_PANEL_TEXT_SIZE_SP,
+    val panelTypeface: LyricPanelTypeface = LyricPanelTypeface.SYSTEM,
+    val panelDiagnostic: Boolean = false,
+    val panelAod: Boolean = false,
+    val panelAodScreen: Boolean = false
+) {
+    companion object {
+        const val DEFAULT_PANEL_TEXT_SIZE_SP = 20
+        const val MIN_PANEL_TEXT_SIZE_SP = 11
+        const val MAX_PANEL_TEXT_SIZE_SP = 32
+    }
+}

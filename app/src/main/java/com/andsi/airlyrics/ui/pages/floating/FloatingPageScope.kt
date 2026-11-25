@@ -26,6 +26,7 @@ import com.andsi.airlyrics.i18n.localizedLyricsSwitchAnimationTitle
 import com.andsi.airlyrics.i18n.localizedOffsetDescription
 import com.andsi.airlyrics.i18n.localizedScriptPreferenceTitle
 import com.andsi.airlyrics.ui.components.pageContainer
+import com.andsi.airlyrics.ui.components.actionButton
 import com.andsi.airlyrics.ui.model.FloatingSettingTile
 import com.andsi.airlyrics.ui.model.MainUiHost
 import com.andsi.airlyrics.ui.pages.floating.sections.addNativeDisplaySection
@@ -71,6 +72,9 @@ internal class FloatingPageScope(
     init {
         host.floatingPageRefs = pageRefs
         pageRefs.refreshDisplayScopeControls = ::refreshDisplayScopeControls
+        pageRefs.refreshPreview = {
+            renderFloatingPreview(previewStyleForAnimation ?: style())
+        }
     }
 
     internal fun createView(): View = with(host) {
@@ -86,6 +90,7 @@ internal class FloatingPageScope(
             isWordByWordLyricsEnabled = ::wordByWordLyricsEnabled,
             plainPreviewText = { previewLyricsText(style()) },
             wordByWordPreviewText = { wordByWordPreviewText(style()) },
+            compactPreviewText = { compactPreviewText(style()) },
             onVisibilityChanged = ::syncPreviewAnimations
         )
         previewHandle = createdPreviewHandle
@@ -119,6 +124,9 @@ internal class FloatingPageScope(
         )
         createdPreviewHandle.cardView.setTag(R.id.interaction_anchor, "floating.preview")
         root.addView(createdPreviewHandle.cardView)
+        root.addView(actionButton(host, getString(floatingVisibilityActionLabel())) {
+            uiActions.toggleFloatingFromNav()
+        }.also { pageRefs.visibilityButton = it })
 
         val list = pageContainer(host).apply {
             setPadding(0, dp(FloatingPageTokens.LIST_PADDING_TOP_DP), 0, 0)
@@ -131,7 +139,7 @@ internal class FloatingPageScope(
 
         list.setTag(R.id.interaction_anchor, "floating.settings")
         root.addView(list)
-        rootFrame.addView(com.andsi.airlyrics.ui.layout.ResponsivePage(host, root, setOf(0), "scroll.FLOATING.root"),
+        rootFrame.addView(com.andsi.airlyrics.ui.layout.ResponsivePage(host, root, setOf(0, 1), "scroll.FLOATING.root"),
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
 
         focusOverlay = FrameLayout(host).apply {
@@ -294,7 +302,22 @@ internal class FloatingPageScope(
         return result
     }
 
+    private fun compactPreviewText(previewStyle: FloatingLyricsStyle): CharSequence =
+        formattedPreviewLyrics(contentDisplayMode(), listOf(currentPreviewLyricLine()), previewStyle.textColor,
+            scriptPreference())
+
     private fun visiblePreviewLyricLines(): List<FloatingPreviewLyricLine> {
+        host.liveFloatingLyric()?.let { live ->
+            val current = FloatingPreviewLyricLine(live.current.original, live.current.translation, true)
+            val previous = live.previous?.let { FloatingPreviewLyricLine(it.original, it.translation, false) }
+            val next = live.next?.let { FloatingPreviewLyricLine(it.original, it.translation, false) }
+            return when (lineDisplayMode()) {
+                LyricsLineDisplayMode.CURRENT_ONLY -> listOf(current)
+                LyricsLineDisplayMode.PREVIOUS_AND_CURRENT -> listOfNotNull(previous, current)
+                LyricsLineDisplayMode.CURRENT_AND_NEXT -> listOfNotNull(current, next)
+                LyricsLineDisplayMode.PREVIOUS_CURRENT_NEXT -> listOfNotNull(previous, current, next)
+            }
+        }
         val previous = FloatingPreviewLyricLine(
             original = host.getString(R.string.ui_previous_lyric_preview),
             translation = host.getString(R.string.ui_previous_lyric_preview_translation),
@@ -315,6 +338,9 @@ internal class FloatingPageScope(
     }
 
     private fun currentPreviewLyricLine(): FloatingPreviewLyricLine {
+        host.liveFloatingLyric()?.let { live ->
+            return FloatingPreviewLyricLine(live.current.original, live.current.translation, true)
+        }
         return FloatingPreviewLyricLine(
             original = host.getString(R.string.ui_this_is_a_lyric_preview),
             translation = host.getString(R.string.ui_this_is_a_lyric_preview_translation),
@@ -497,7 +523,7 @@ internal class FloatingPageScope(
                 wordByWordPreviewText(latestStyle)
             } else {
                 previewLyricsText(latestStyle)
-            })
+            }, compactPreviewText(latestStyle))
         previewHandle?.lyricTextView?.apply {
             with(host) {
                 applyFloatingPreviewStyle(latestStyle)

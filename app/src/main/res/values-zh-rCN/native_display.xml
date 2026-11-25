@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="ui_floating_show_lyrics">显示歌词</string>
+    <string name="ui_floating_preview">预览</string>
+    <string name="ui_floating_hide_lyrics">隐藏歌词</string>
     <string name="ui_native_display_title">原生歌词显示</string>
     <string name="ui_native_display_controls">锁屏、停靠与电池</string>
     <string name="ui_hold_to_edit">长按三秒以调整</string>
@@ -16,7 +19,7 @@
     <string name="ui_lock_lyrics_metadata">包含歌曲名与歌手</string>
     <string name="ui_lock_lyrics_compact">紧凑单行通知</string>
     <string name="ui_aod_capability">息屏显示：实时歌词未经验证</string>
-    <string name="ui_aod_unverified_hint">尚未在 Galaxy A25 / One UI 8.5 上验证三星息屏实时歌词。未启用实时息屏模式。Android 可能显示通知图标；音乐信息由音乐应用和系统控制。不会唤醒屏幕或播放息屏动画。</string>
+    <string name="ui_aod_unverified_hint">三星息屏实时歌词取决于小组件宿主及手机是否允许 AirLyrics 在屏幕休眠时运行。Galaxy A25 兼容性尚未验证。</string>
     <string name="ui_minimal_motion">减少动态效果</string>
     <string name="ui_minimal_motion_hint">使用静态换行，停用卡拉 OK 与过渡效果。省电模式和系统停用动画设置也会减少动态效果。</string>
     <string name="ui_lock_lyrics_title">AirLyrics 歌词</string>
@@ -36,11 +39,21 @@
     <string name="ui_overlay_shorter">缩短歌词窗口</string>
     <string name="ui_panel_title">AirLyrics 歌词面板</string>
     <string name="ui_panel_enable">启用固定歌词小组件</string>
-    <string name="ui_panel_hint">两行歌词、歌曲配色，无操作控件。请通过系统小组件选择器添加 AirLyrics 歌词面板。使用现有歌词服务；选择公开歌词后才会显示文本。尚未验证三星锁屏放置位置和息屏实时歌词。未启用实时息屏模式。</string>
+    <string name="ui_panel_hint">通过系统小组件选择器添加 AirLyrics 歌词面板。选择公开歌词以显示文本。小组件宿主决定放置位置。</string>
     <string name="ui_panel_idle">等待歌词</string>
     <string name="ui_panel_ambient">息屏实时歌词不可用</string>
     <string name="ui_panel_description">固定两行歌词，使用歌曲配色。锁屏和息屏位置由系统决定。</string>
     <string name="ui_panel_album_colors">使用专辑配色</string>
     <string name="ui_panel_transparent">小组件背景透明</string>
-    <string name="ui_panel_color_hint">关闭专辑配色后可使用自选文字和背景颜色。关闭透明背景后显示背景色。三星可能应用系统单色配色。</string>
+    <string name="ui_panel_color_hint">关闭专辑配色后可使用自选颜色。纯色背景上的文字对比度不足时，小组件会调整文字颜色。三星可能应用系统单色配色。</string>
+    <string name="ui_panel_preview_lines">灯光渐暗\n歌声依然清晰</string>
+    <string name="ui_panel_diagnostic">显示两行静态测试文字</string>
+    <string name="ui_panel_diagnostic_lines">测试\n已绑定</string>
+    <string name="ui_panel_aod">息屏显示歌词</string>
+    <string name="ui_panel_aod_screen">居中息屏歌词界面（OLED）</string>
+    <string name="ui_aod_screen_dismiss_hint">双击或上滑关闭</string>
+    <string name="ui_panel_text_size">小组件文字大小</string>
+    <string name="ui_panel_type_system">系统</string>
+    <string name="ui_panel_type_spotify">Spotify 风格</string>
+    <string name="ui_panel_type_apple">Apple Music 风格</string>
 </resources>

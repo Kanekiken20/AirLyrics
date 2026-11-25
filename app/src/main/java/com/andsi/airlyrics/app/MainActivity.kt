@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import com.andsi.airlyrics.app.viewmodel.MainViewModel
+import com.andsi.airlyrics.floating.FloatingInAppPreview
 
 class MainActivity : AppCompatActivity() {
     internal val mainViewModel: MainViewModel by viewModels {
@@ -25,6 +26,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        FloatingInAppPreview.appVisible = true
         graph.onStart()
     }
 
@@ -37,6 +39,7 @@ class MainActivity : AppCompatActivity() {
         if (::graph.isInitialized) {
             graph.onStop()
         }
+        if (!isChangingConfigurations) FloatingInAppPreview.appVisible = false
         super.onStop()
     }
 

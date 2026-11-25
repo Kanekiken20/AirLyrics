@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingVertical="1dp">
+
+    <LinearLayout
+        android:id="@+id/lyric_panel_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_fixed_lyrics_panel"
+        android:clickable="false"
+        android:focusable="false"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="10dp">
+
+        <TextView
+            android:id="@+id/lyric_panel_previous"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp"
+            android:gravity="center"
+            android:fontFamily="@font/air_apple_music"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:textDirection="firstStrong"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/lyric_panel_text"
+            style="@style/WidgetLyricText.Apple"
+            android:textSize="18sp"
+            android:clickable="false"
+            android:focusable="false" />
+        <TextView
+            android:id="@+id/lyric_panel_next"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:fontFamily="@font/air_apple_music"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:textDirection="firstStrong"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/lyric_panel_attribution"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:fontFamily="@font/air_apple_music"
+            android:textSize="11sp"
+            android:textColor="#F4F5F8"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:visibility="gone"
+            android:clickable="false"
+            android:focusable="false" />
+    </LinearLayout>
+
+</FrameLayout>

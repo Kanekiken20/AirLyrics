@@ -74,9 +74,20 @@ class LyricsDisplaySettingsStoreTest {
     @Test fun firstWidgetPlacementEnablesPanelButPreservesPrivacyAndAnExplicitOffChoice() {
         LyricsDisplaySettingsStore.enablePanelOnFirstPlacement(context)
         assertTrue(LyricsDisplaySettingsStore.get(context).panelEnabled)
+        assertTrue(LyricsDisplaySettingsStore.get(context).panelAod)
         assertEquals(LockScreenLyricPrivacy.PRIVATE, LyricsDisplaySettingsStore.get(context).privacy)
         LyricsDisplaySettingsStore.setPanelEnabled(context, false)
+        LyricsDisplaySettingsStore.setPanelAod(context, false)
         LyricsDisplaySettingsStore.enablePanelOnFirstPlacement(context)
         assertFalse(LyricsDisplaySettingsStore.get(context).panelEnabled)
+        assertFalse(LyricsDisplaySettingsStore.get(context).panelAod)
+    }
+
+    @Test fun panelAodScreenDefaultsOffAndRoundTrips() {
+        assertFalse(LyricsDisplaySettingsStore.get(context).panelAodScreen)
+        LyricsDisplaySettingsStore.setPanelAodScreen(context, true)
+        assertTrue(LyricsDisplaySettingsStore.get(context).panelAodScreen)
+        LyricsDisplaySettingsStore.setPanelAodScreen(context, false)
+        assertFalse(LyricsDisplaySettingsStore.get(context).panelAodScreen)
     }
 }

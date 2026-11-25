@@ -9,6 +9,8 @@ internal class FloatingPageRefs {
     var lockButton: TextView? = null
     var clickThroughButton: TextView? = null
     var refreshDisplayScopeControls: (() -> Unit)? = null
+    var refreshPreview: (() -> Unit)? = null
+    var visibilityButton: TextView? = null
 
     fun registerTileSubtitle(title: String, view: TextView) {
         tileSubtitles[title] = view
@@ -20,5 +22,7 @@ internal class FloatingPageRefs {
         lockButton = null
         clickThroughButton = null
         refreshDisplayScopeControls = null
+        refreshPreview = null
+        visibilityButton = null
     }
 }

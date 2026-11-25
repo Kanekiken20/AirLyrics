@@ -1,5 +1,7 @@
 package com.andsi.airlyrics.app.render
 
+import com.andsi.airlyrics.ui.pages.floating.floatingVisibilityActionLabel
+
 import com.andsi.airlyrics.ui.state.bindInteractionScroll
 import com.andsi.airlyrics.ui.state.findInteractionScroll
 import com.andsi.airlyrics.ui.state.markInteractionAnchors
@@ -160,7 +162,7 @@ internal class MainHandRenderer(
     }
 
     override fun refreshFloatingChrome(animateQuickStatus: Boolean) {
-        updateTabs(host, animate = false, animateQuickStatus = animateQuickStatus)
+        updateTabs(host, animate = animateQuickStatus)
         refreshFloatingControls()
     }
 
@@ -169,6 +171,7 @@ internal class MainHandRenderer(
         refs.displayControlSubtitle?.text = host.floatingDisplaySummary()
         refs.lockButton?.text = host.floatingLockButtonText()
         refs.clickThroughButton?.text = host.floatingClickThroughButtonText()
+        refs.visibilityButton?.setText(host.floatingVisibilityActionLabel())
     }
 
     override fun refreshFloatingDisplayScope() {

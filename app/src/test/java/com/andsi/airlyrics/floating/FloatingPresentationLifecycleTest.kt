@@ -6,6 +6,9 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.appwidget.AppWidgetManager
 import android.content.Context
+import android.graphics.Color
+import android.view.View
+import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import com.andsi.airlyrics.media.model.CurrentMediaInfo
 import com.andsi.airlyrics.R
@@ -26,6 +29,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
 import org.robolectric.shadows.ShadowLooper
 import org.robolectric.shadows.ShadowSettings
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -66,7 +70,7 @@ class FloatingPresentationLifecycleTest {
 
     @Test fun optedInCardIsPostedAutomaticallyBeforeLockAndUsesExpandedText() {
         assertEquals("First", line())
-        assertEquals("First", notification()?.extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString())
+        assertEquals("First\nSecond", notification()?.extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString())
         setScreen(LyricsScreenClass.LOCKED_INTERACTIVE)
         assertEquals("First", line())
         service.applyLyricsOffset(4_000)
@@ -149,6 +153,7 @@ class FloatingPresentationLifecycleTest {
             .findViewById<android.widget.TextView>(R.id.lyric_panel_text).text.toString()
         LyricsDisplaySettingsStore.setEnabled(service, false)
         LyricsDisplaySettingsStore.setPanelEnabled(service, true)
+        LyricsDisplaySettingsStore.setPanelAod(service, false)
         LyricsDisplaySettingsStore.setPrivacy(service, LockScreenLyricPrivacy.PUBLIC)
         setScreen(LyricsScreenClass.LOCKED_INTERACTIVE)
         assertNull(notification())
@@ -167,5 +172,81 @@ class FloatingPresentationLifecycleTest {
         service.hideLyrics()
         assertFalse(widgetText().contains("First"))
         assertFalse(widgetText().contains("Second"))
+    }
+
+    @Test fun optedInAmbientWidgetUsesOnlyLineDeadlinesAndStopsWhenDisplayTurnsOff() {
+        val manager = AppWidgetManager.getInstance(app)
+        val id = shadowOf(manager).createWidget(FixedLyricsPanelProvider::class.java, R.layout.fixed_lyrics_panel)
+        fun row(viewId: Int) = shadowOf(manager).getViewFor(id).findViewById<TextView>(viewId)
+        val neighborWhite = androidx.core.graphics.ColorUtils.setAlphaComponent(
+            Color.WHITE,
+            com.andsi.airlyrics.core.color.LyricPanelAppearance.NEIGHBOR_LINE_ALPHA
+        )
+        fun assertAmbientRows(previous: String, current: String, next: String) {
+            val prevRow = row(R.id.lyric_panel_previous)
+            assertEquals(previous, prevRow.text.toString())
+            assertEquals(if (previous.isEmpty()) View.GONE else View.VISIBLE, prevRow.visibility)
+            if (previous.isNotEmpty()) assertEquals(neighborWhite, prevRow.currentTextColor)
+            assertEquals(current, row(R.id.lyric_panel_text).text.toString())
+            assertEquals(Color.WHITE, row(R.id.lyric_panel_text).currentTextColor)
+            val nextRow = row(R.id.lyric_panel_next)
+            assertEquals(next, nextRow.text.toString())
+            assertEquals(if (next.isEmpty()) View.GONE else View.VISIBLE, nextRow.visibility)
+            if (next.isNotEmpty()) assertEquals(neighborWhite, nextRow.currentTextColor)
+        }
+        LyricsDisplaySettingsStore.setPanelEnabled(service, true)
+        LyricsDisplaySettingsStore.setPrivacy(service, LockScreenLyricPrivacy.PUBLIC)
+        LyricsDisplaySettingsStore.setPanelAod(service, true)
+        service.currentMedia = service.currentMedia.copy(isPlaying = true)
+        service.renderer.parseAndShow("[00:01.00]First\n[00:04.00]Second\n[00:08.00]Third", emptyText = "")
+        service.renderer.updatePlayback(1_000, true)
+        setScreen(LyricsScreenClass.DOZE_SUSPEND)
+        assertAmbientRows("", "First", "Second")
+        assertTrue(service.syncHandler.hasCallbacks(service.syncRunnable))
+        assertFalse(service.syncHandler.hasCallbacks(service.currentMediaRefreshRunnable))
+        ShadowLooper.idleMainLooper(2_500, TimeUnit.MILLISECONDS)
+        assertAmbientRows("", "First", "Second")
+        ShadowLooper.idleMainLooper(600, TimeUnit.MILLISECONDS)
+        assertAmbientRows("", "Second", "Third")
+        ShadowLooper.idleMainLooper(4_000, TimeUnit.MILLISECONDS)
+        assertAmbientRows("Second", "Third", "")
+        assertFalse(service.syncHandler.hasCallbacks(service.syncRunnable))
+        assertNull(notification())
+        setScreen(LyricsScreenClass.OFF)
+        assertFalse(service.syncHandler.hasCallbacks(service.syncRunnable))
+        assertEquals(service.getString(R.string.ui_panel_ambient), row(R.id.lyric_panel_text).text.toString())
+    }
+
+    @Test fun lockWidgetShowsNeighborsAndRecomputesThemWhenTimingMovesInEitherDirection() {
+        val manager = AppWidgetManager.getInstance(app)
+        val id = shadowOf(manager).createWidget(FixedLyricsPanelProvider::class.java, R.layout.fixed_lyrics_panel)
+        fun row(viewId: Int) = shadowOf(manager).getViewFor(id)
+            .findViewById<android.widget.TextView>(viewId).text.toString()
+        LyricsDisplaySettingsStore.setPanelEnabled(service, true)
+        LyricsDisplaySettingsStore.setPrivacy(service, LockScreenLyricPrivacy.PUBLIC)
+        service.renderer.parseAndShow("[00:01.00]First\n[00:04.00]Second\n[00:08.00]Third", emptyText = "")
+        setScreen(LyricsScreenClass.LOCKED_INTERACTIVE)
+        service.applyLyricsOffset(4_000)
+        assertEquals("First", row(R.id.lyric_panel_previous))
+        assertEquals("Second", row(R.id.lyric_panel_text))
+        assertEquals("Third", row(R.id.lyric_panel_next))
+        service.applyLyricsOffset(0)
+        assertEquals("", row(R.id.lyric_panel_previous))
+        assertEquals("First", row(R.id.lyric_panel_text))
+        assertEquals("Second", row(R.id.lyric_panel_next))
+    }
+
+    @Test fun theAppPreviewReplacesTheFloatingWindowUntilTheAppLeaves() {
+        try {
+            FloatingInAppPreview.appVisible = true
+            setScreen(LyricsScreenClass.UNLOCKED)
+            assertFalse(service.windowController.isContentVisible)
+            assertEquals("First", FloatingInAppPreview.lyrics.value?.current?.original)
+        } finally {
+            FloatingInAppPreview.appVisible = false
+        }
+        setScreen(LyricsScreenClass.UNLOCKED)
+        assertTrue(service.windowController.isContentVisible)
+        assertNull(FloatingInAppPreview.lyrics.value)
     }
 }

@@ -8,6 +8,7 @@ import com.andsi.airlyrics.core.model.FloatingLyricsStyle
 import com.andsi.airlyrics.core.model.LyricsContentDisplayMode
 import com.andsi.airlyrics.core.model.LyricsScriptPreference
 import com.andsi.airlyrics.core.model.LyricsLineDisplayMode
+import com.andsi.airlyrics.core.model.LyricPreview
 import com.andsi.airlyrics.core.model.LyricsSwitchAnimationMode
 
 internal data class FloatingFocusBubbleHandle(
@@ -42,6 +43,7 @@ internal interface FloatingUiHost {
     fun hasFloatingCustomFont(): Boolean
     fun selectFloatingFontFile()
     fun isFloatingPreviewExpanded(): Boolean
+    fun liveFloatingLyric(): LyricPreview? = null
     fun setFloatingPreviewExpanded(expanded: Boolean)
     fun floatingDisplaySummary(): String
     fun floatingLockButtonText(): String
@@ -107,6 +109,13 @@ internal interface FloatingUiHost {
     fun setPanelAlbumColors(enabled: Boolean) = Unit
     fun setPanelTransparent(enabled: Boolean) = Unit
     fun setPanelColor(text: Boolean, color: Int) = Unit
+    fun setPanelTextSize(sizeSp: Int) = Unit
+    fun setPanelTypeface(typeface: com.andsi.airlyrics.core.model.LyricPanelTypeface) = Unit
+    fun panelPreviewAlbumColors(): Pair<Int, Int> = 0xFF202127.toInt() to 0xFFF4F5F8.toInt()
+    fun showPanelTestControls(): Boolean = false
+    fun setPanelDiagnostic(enabled: Boolean) = Unit
+    fun setPanelAod(enabled: Boolean) = Unit
+    fun setPanelAodScreen(enabled: Boolean) = Unit
     fun setLyricsDisplayPrivacy(privacy: com.andsi.airlyrics.core.model.LockScreenLyricPrivacy) = Unit
     fun setLyricsDisplayShowMetadata(enabled: Boolean) = Unit
     fun setLyricsDisplayCompact(compact: Boolean) = Unit

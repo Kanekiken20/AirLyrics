@@ -24,7 +24,9 @@ internal data class LockScreenLyricContent(
     val artist: String,
     val line: String,
     val playing: Boolean,
-    val attribution: String? = null
+    val attribution: String? = null,
+    val previousLine: String? = null,
+    val nextLine: String? = null
 )
 
 /**
@@ -66,7 +68,9 @@ internal class LockScreenLyricsNotification(private val context: Context) {
         val safeContent = content.copy(
             title = content.title.take(MAX_METADATA_LENGTH),
             artist = content.artist.take(MAX_METADATA_LENGTH),
-            line = content.line.take(MAX_LINE_LENGTH)
+            line = content.line.take(MAX_LINE_LENGTH),
+            previousLine = content.previousLine?.take(MAX_LINE_LENGTH),
+            nextLine = content.nextLine?.take(MAX_LINE_LENGTH)
         )
         val key = PostedKey(safeContent, settings, context.resources.configuration.locales.toLanguageTags())
         if (key == lastPosted) return false
@@ -134,7 +138,20 @@ internal class LockScreenLyricsNotification(private val context: Context) {
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .build())
         }
-        if (!settings.compact) builder.setStyle(NotificationCompat.BigTextStyle().bigText(line))
+        if (!settings.compact) {
+            val current = content.attribution?.let { line.removeSuffix("\n$it") } ?: line
+            val expanded = android.text.SpannableStringBuilder()
+            content.previousLine?.let { expanded.append(it).append('\n') }
+            val start = expanded.length
+            expanded.append(current)
+            if (expanded.length > start) {
+                expanded.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, expanded.length,
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            content.nextLine?.let { expanded.append('\n').append(it) }
+            content.attribution?.let { expanded.append('\n').append(it) }
+            builder.setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
+        }
         return builder.build()
     }
 

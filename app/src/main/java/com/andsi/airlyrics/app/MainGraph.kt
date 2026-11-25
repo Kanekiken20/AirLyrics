@@ -35,6 +35,7 @@ import com.andsi.airlyrics.app.workflow.MainDisplayScopeWorkflow
 import com.andsi.airlyrics.feedback.AirFeedback
 import com.andsi.airlyrics.feedback.ToastAirFeedback
 import com.andsi.airlyrics.floating.FloatingWindowRuntimeState
+import com.andsi.airlyrics.floating.FloatingInAppPreview
 import com.andsi.airlyrics.floating.FloatingWindowStateBroadcast
 import com.andsi.airlyrics.i18n.lyrics.localizedLyricsLookupMessage
 import com.andsi.airlyrics.lyrics.importer.plainLyricsImportFormatErrorMessage
@@ -510,6 +511,11 @@ internal class MainGraph(
     private fun observeViewModelState() {
         if (stateObserverJob != null) return
         stateObserverJob = activity.lifecycleScope.launch {
+            launch {
+                FloatingInAppPreview.lyrics.collect {
+                    viewRefs.floatingPageRefs?.refreshPreview?.invoke()
+                }
+            }
             viewModel.uiState.collect { latest ->
                 if (!canRenderUi()) return@collect
                 val previous = lastRenderedState

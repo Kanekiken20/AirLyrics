@@ -71,9 +71,10 @@ class FloatingLyricsServiceCommandLifecycleTest {
         assertEquals(Service.START_STICKY, send(service, FloatingServiceCommand.Show, startId = 1))
         val windowManager = shadowWindowManager(service)
         val firstView = requireNotNull(service.lyricsView)
+        val windowRoot = firstView.parent as View
         assertTrue(service.windowController.isVisible)
         assertTrue(QuickFloatingStore.isDesiredVisible(service))
-        assertEquals(1, windowManager.views.count { it === firstView })
+        assertEquals(1, windowManager.views.count { it === windowRoot })
 
         send(service, FloatingServiceCommand.Show, startId = 2)
 
@@ -81,7 +82,7 @@ class FloatingLyricsServiceCommandLifecycleTest {
         assertEquals(
             "Repeated Show must reuse the production floating view",
             1,
-            windowManager.views.count { it === firstView }
+            windowManager.views.count { it === windowRoot }
         )
 
         send(service, FloatingServiceCommand.Hide, startId = 3)
@@ -89,13 +90,13 @@ class FloatingLyricsServiceCommandLifecycleTest {
         assertFalse(service.windowController.isVisible)
         assertFalse(QuickFloatingStore.isDesiredVisible(service))
         assertNull(service.lyricsView)
-        assertFalse(windowManager.views.any { it === firstView })
+        assertFalse(windowManager.views.any { it === windowRoot })
 
         send(service, FloatingServiceCommand.Hide, startId = 4)
 
         assertFalse(service.windowController.isVisible)
         assertNull(service.lyricsView)
-        assertFalse(windowManager.views.any { it === firstView })
+        assertFalse(windowManager.views.any { it === windowRoot })
     }
 
     @Test
@@ -109,7 +110,8 @@ class FloatingLyricsServiceCommandLifecycleTest {
         val windowManager = shadowWindowManager(service)
         send(service, FloatingServiceCommand.Show)
         val view = requireNotNull(service.lyricsView)
-        val layoutParams = view.layoutParams as WindowManager.LayoutParams
+        val windowRoot = view.parent as View
+        val layoutParams = windowRoot.layoutParams as WindowManager.LayoutParams
 
         assertTrue(layoutParams.hasFlag(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE))
         assertFalse(layoutParams.hasFlag(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE))
@@ -163,7 +165,7 @@ class FloatingLyricsServiceCommandLifecycleTest {
         send(service, FloatingServiceCommand.ClickThroughOn)
 
         assertNull(service.lyricsView)
-        assertFalse(windowManager.views.any { it === view })
+        assertFalse(windowManager.views.any { it === windowRoot })
         assertEquals(
             "A post-hide command must not mutate the removed view",
             detachedFlags,
@@ -188,6 +190,7 @@ class FloatingLyricsServiceCommandLifecycleTest {
         val service = controller.get()
         send(service, FloatingServiceCommand.Show)
         val lyricsView = requireNotNull(service.lyricsView)
+        val windowRoot = lyricsView.parent as View
 
         send(service, FloatingServiceCommand.ReloadLyrics)
 
@@ -238,6 +241,7 @@ class FloatingLyricsServiceCommandLifecycleTest {
 
         send(service, FloatingServiceCommand.Show)
         val lyricsView = requireNotNull(service.lyricsView)
+        val windowRoot = lyricsView.parent as View
         val windowManager = shadowWindowManager(service)
         application.sendBroadcast(mediaIntent)
         ShadowLooper.idleMainLooper()
@@ -252,7 +256,7 @@ class FloatingLyricsServiceCommandLifecycleTest {
         service.markLyricsUnavailable(service.currentMedia.playbackLyricsKey())
         val textAtDestroy = lyricsView.text.toString()
 
-        assertTrue(windowManager.views.any { it === lyricsView })
+        assertTrue(windowManager.views.any { it === windowRoot })
         assertNotNull(service.activeLyricsLookupRequestKey)
         assertFalse("Paused playback must have no prediction timer", service.syncHandler.hasCallbacks(service.syncRunnable))
         assertTrue(service.syncHandler.hasCallbacks(service.pauseAutoHideRunnable))
@@ -264,7 +268,7 @@ class FloatingLyricsServiceCommandLifecycleTest {
 
         assertFalse(service.windowController.isVisible)
         assertNull(service.lyricsView)
-        assertFalse(windowManager.views.any { it === lyricsView })
+        assertFalse(windowManager.views.any { it === windowRoot })
         assertNull(service.activeLyricsLookupRequestKey)
         assertFalse(service.syncHandler.hasCallbacks(service.syncRunnable))
         assertFalse(service.syncHandler.hasCallbacks(service.pauseAutoHideRunnable))

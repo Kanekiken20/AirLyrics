@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="WidgetLyricText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:gravity">center</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">#F4F5F8</item>
+        <item name="android:text">@string/ui_panel_idle</item>
+        <item name="android:maxLines">2</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textDirection">firstStrong</item>
+    </style>
+
+    <style name="WidgetLyricText.Spotify" parent="WidgetLyricText">
+        <item name="android:fontFamily">@font/air_spotify</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="WidgetLyricText.Apple" parent="WidgetLyricText">
+        <item name="android:fontFamily">@font/air_apple_music</item>
+        <item name="android:textStyle">normal</item>
+    </style>
+</resources>

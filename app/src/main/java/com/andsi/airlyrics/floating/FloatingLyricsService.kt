@@ -238,13 +238,15 @@ open class FloatingLyricsService : Service() {
         }
 
         renderer.onTimelineChanged = ::requestPresentationRefresh
+        FloatingInAppPreview.onVisibilityChanged = ::requestPresentationRefresh
+        AodLyricsHost.onDismissedByUser = ::requestPresentationRefresh
         windowController.onInteractionChanged = {
             requestPresentationRefresh()
             refreshQuickControls()
         }
         screenMonitor = LyricsScreenMonitor(this, syncHandler, ::refreshLyricsPresentation).also { it.start() }
         screenClass = screenMonitor?.screenClass() ?: LyricsScreenClass.UNKNOWN
-        windowController.setPresentationVisible(screenClass == LyricsScreenClass.UNLOCKED)
+        windowController.setPresentationVisible(screenClass == LyricsScreenClass.UNLOCKED && !FloatingInAppPreview.appVisible)
         renderer.setRenderingState(false, false)
         listOf("lyrics_display", "floating_overlay_geometry").forEach { name ->
             getSharedPreferences(name, Context.MODE_PRIVATE).also {
@@ -316,6 +318,9 @@ open class FloatingLyricsService : Service() {
     override fun onDestroy() {
         destroyed = true
         renderer.onTimelineChanged = null
+        FloatingInAppPreview.onVisibilityChanged = null
+        AodLyricsHost.onDismissedByUser = null
+        AodLyricsHost.resetLockCycle()
         if (::windowController.isInitialized) windowController.onInteractionChanged = null
         screenMonitor?.close()
         screenMonitor = null

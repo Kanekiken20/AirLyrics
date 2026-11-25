@@ -1,37 +1,53 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="4dp">
+    android:paddingVertical="1dp">
 
     <LinearLayout
         android:id="@+id/lyric_panel_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@android:color/transparent"
+        android:background="@drawable/bg_fixed_lyrics_panel"
         android:clickable="false"
         android:focusable="false"
         android:orientation="vertical"
         android:gravity="center"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="8dp">
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="10dp">
 
         <TextView
-            android:id="@+id/lyric_panel_text"
+            android:id="@+id/lyric_panel_previous"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:gravity="center"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp"
             android:fontFamily="sans-serif-medium"
-            android:textSize="15sp"
-            android:textColor="#F4F5F8"
-            android:text="@string/ui_panel_idle"
-            android:maxLines="2"
+            android:gravity="center"
+            android:textSize="13sp"
+            android:maxLines="1"
             android:ellipsize="end"
             android:includeFontPadding="false"
             android:textDirection="firstStrong"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/lyric_panel_text"
+            style="@style/WidgetLyricText"
+            android:textSize="18sp"
             android:clickable="false"
             android:focusable="false" />
+        <TextView
+            android:id="@+id/lyric_panel_next"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:textDirection="firstStrong"
+            android:visibility="gone" />
         <TextView
             android:id="@+id/lyric_panel_attribution"
             android:layout_width="match_parent"
@@ -46,4 +62,5 @@
             android:clickable="false"
             android:focusable="false" />
     </LinearLayout>
+
 </FrameLayout>

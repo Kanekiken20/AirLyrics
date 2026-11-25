@@ -33,7 +33,7 @@ class FloatingNativeDisplaySectionTest {
     }
 
     @Test
-    fun nativeControlsPersistThroughTheRealHostAndDoNotOfferUnverifiedAodMode() {
+    fun nativeControlsPersistThroughTheRealHostWithExperimentalAodOffUntilSelected() {
         Robolectric.buildActivity(MainActivity::class.java).setup().use { controller ->
             val activity = controller.get()
             val host = activity.graph.uiHost
@@ -67,8 +67,17 @@ class FloatingNativeDisplaySectionTest {
             assertFalse(FloatingOverlayStore.isDockingEnabled(activity))
             assertTrue(descendants(list).filterIsInstance<TextView>()
                 .any { it.text.toString() == activity.getString(R.string.ui_aod_unverified_hint) })
-            assertFalse(descendants(list).filterIsInstance<SwitchCompat>()
-                .any { it.text.toString().contains("AOD", ignoreCase = true) })
+            val ambient = switch(R.string.ui_panel_aod)
+            val diagnostic = switch(R.string.ui_panel_diagnostic)
+            assertFalse(ambient.isChecked)
+            assertFalse(diagnostic.isChecked)
+            ambient.isChecked = true
+            diagnostic.isChecked = true
+            assertTrue(LyricsDisplaySettingsStore.get(activity).panelAod)
+            assertTrue(LyricsDisplaySettingsStore.get(activity).panelDiagnostic)
+            assertTrue(descendants(list).filterIsInstance<TextView>().any {
+                it.text.toString() == activity.getString(R.string.ui_panel_diagnostic_lines)
+            })
             list.getChildAt(1).performClick()
             assertEquals(View.GONE, controls.visibility)
         }

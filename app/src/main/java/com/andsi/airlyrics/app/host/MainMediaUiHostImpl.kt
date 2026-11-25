@@ -40,7 +40,7 @@ internal fun MainUiHost.refreshMediaButtonImpl(): View {
             RefreshState.DONE -> R.string.ui_refreshed
         }
         val buttonColor = when (mediaRefreshState) {
-            RefreshState.IDLE -> colorAccent
+            RefreshState.IDLE -> colorSurfaceLight
             RefreshState.REFRESHING -> colorSurfaceLight
             RefreshState.DONE -> colorAccentSoft
         }
@@ -53,7 +53,7 @@ internal fun MainUiHost.refreshMediaButtonImpl(): View {
         labelView.setText(buttonTextRes)
         labelView.setTextColor(
             when (mediaRefreshState) {
-                RefreshState.IDLE -> colorOnAccent
+                RefreshState.IDLE -> colorTextMuted
                 RefreshState.REFRESHING -> colorText
                 RefreshState.DONE -> colorOnAccent
             }
@@ -98,9 +98,11 @@ internal fun MainUiHost.refreshMediaButtonImpl(): View {
         gravity = Gravity.CENTER
         setPadding(dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.Xxl + AirUiTokens.Space.Xxs), dp(AirUiTokens.Space.ButtonH), dp(AirUiTokens.Space.Xxl + AirUiTokens.Space.Xxs))
         val params = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
+        params.gravity = Gravity.END
+        minimumHeight = dp(AirUiTokens.Layout.IconTouchSize)
         params.setMargins(0, dp(AirUiTokens.Space.Xxl), 0, 0)
         layoutParams = params
         enableSoftPressFeedback(AirUiTokens.Motion.DefaultPressScale)

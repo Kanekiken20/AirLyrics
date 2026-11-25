@@ -15,6 +15,8 @@ import com.andsi.airlyrics.ui.components.expandableText
 import com.andsi.airlyrics.R
 import com.andsi.airlyrics.i18n.localizedOffsetDescription
 import com.andsi.airlyrics.ui.components.actionButton
+import com.andsi.airlyrics.ui.components.AirTonalButtonTone
+import com.andsi.airlyrics.ui.components.styleAirTonalButton
 import com.andsi.airlyrics.ui.components.airIconView
 import com.andsi.airlyrics.ui.components.bigText
 import com.andsi.airlyrics.ui.components.card
@@ -64,17 +66,17 @@ internal fun createCurrentLyricsCard(activity: MainUiHost): RefreshableSettingsC
         addView(actionButton(activity, getString(R.string.ui_import_lyrics_for_current_song)) { uiActions.importLyricsForCurrentMedia() })
         addView(actionButton(activity, getString(R.string.ui_remove_plain_lrc)) {
             confirmDeleteLyrics(getString(R.string.ui_remove_plain_lrc_confirm), LyricsDeleteMode.PLAIN)
-        })
+        }.also { activity.styleAirTonalButton(it, AirTonalButtonTone.DEFAULT) })
         addView(actionButton(activity, getString(R.string.ui_remove_word_by_word_lyrics)) {
             confirmDeleteLyrics(
                 getString(R.string.ui_remove_word_by_word_lyrics_confirm),
                 LyricsDeleteMode.WORD_BY_WORD,
                 getString(R.string.ui_remove_word_by_word_lyrics_message)
             )
-        })
+        }.also { activity.styleAirTonalButton(it, AirTonalButtonTone.DEFAULT) })
         addView(actionButton(activity, getString(R.string.ui_remove_all_lyrics)) {
             confirmDeleteLyrics(getString(R.string.ui_remove_all_lyrics_confirm), LyricsDeleteMode.ALL)
-        })
+        }.also { activity.styleAirTonalButton(it, AirTonalButtonTone.DEFAULT) })
     }
     body.addView(actions)
 
@@ -92,7 +94,7 @@ internal fun createCurrentLyricsCard(activity: MainUiHost): RefreshableSettingsC
             details.addView(smallHint(activity, getString(R.string.ui_manage_lyrics_select_player_hint)))
             return details to null
         }
-        val title = normalText(activity, media.displayText)
+        val title = bigText(activity, media.displayText)
         val source = settingRow(activity, getString(R.string.ui_plain_lyrics_source), state.localSourceText ?: getString(R.string.ui_no_plain_lrc))
         val plain = settingRow(activity, getString(R.string.ui_plain_lyrics), state.plainLyricsTitle ?: getString(R.string.ui_not_bound), valuePolicy = TextDisplayPolicy.ExpandableSummary)
         val wordByWord = wordByWordStatusRow(activity, wordByWordSummaryRes(state))

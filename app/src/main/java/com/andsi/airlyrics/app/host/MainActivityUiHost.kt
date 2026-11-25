@@ -1,6 +1,7 @@
 package com.andsi.airlyrics.app.host
 
 import com.andsi.airlyrics.floating.FloatingLyricsTextView
+import com.andsi.airlyrics.floating.FloatingInAppPreview
 
 import com.andsi.airlyrics.app.interaction.DraftReaderContent
 import com.andsi.airlyrics.app.interaction.LyricsDraftStore
@@ -286,6 +287,28 @@ internal class MainActivityUiHost(
         LyricsDisplaySettingsStore.setPanelColor(this, text, color)
         com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
     }
+    override fun setPanelTextSize(sizeSp: Int) {
+        LyricsDisplaySettingsStore.setPanelTextSize(this, sizeSp)
+        com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
+    }
+    override fun setPanelTypeface(typeface: com.andsi.airlyrics.core.model.LyricPanelTypeface) {
+        LyricsDisplaySettingsStore.setPanelTypeface(this, typeface)
+        com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
+    }
+    override fun panelPreviewAlbumColors() = com.andsi.airlyrics.floating.FixedLyricsPanel.previewAlbumColors()
+    override fun showPanelTestControls() = com.andsi.airlyrics.BuildConfig.DEBUG
+    override fun setPanelDiagnostic(enabled: Boolean) {
+        LyricsDisplaySettingsStore.setPanelDiagnostic(this, enabled)
+        com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
+    }
+    override fun setPanelAod(enabled: Boolean) {
+        LyricsDisplaySettingsStore.setPanelAod(this, enabled)
+        com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
+    }
+    override fun setPanelAodScreen(enabled: Boolean) {
+        LyricsDisplaySettingsStore.setPanelAodScreen(this, enabled)
+        com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
+    }
     override fun setLyricsDisplayPrivacy(privacy: LockScreenLyricPrivacy) {
         LyricsDisplaySettingsStore.setPrivacy(this, privacy)
         com.andsi.airlyrics.floating.FixedLyricsPanel.refreshPolicy(this)
@@ -304,6 +327,7 @@ internal class MainActivityUiHost(
     override fun hasFloatingCustomFont(): Boolean = FloatingLyricsFontStore.hasCustomFont(this)
     override fun selectFloatingFontFile() = graph.viewModel.selectFloatingFontFile()
     override fun isFloatingPreviewExpanded(): Boolean = FloatingLyricsStyleStore.isPreviewExpanded(this)
+    override fun liveFloatingLyric() = FloatingInAppPreview.lyrics.value
     override fun setFloatingPreviewExpanded(expanded: Boolean) = FloatingLyricsStyleStore.setPreviewExpanded(this, expanded)
 
     override fun floatingDisplaySummary(): String {

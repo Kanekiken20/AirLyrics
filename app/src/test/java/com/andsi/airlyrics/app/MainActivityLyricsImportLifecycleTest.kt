@@ -74,7 +74,7 @@ class MainActivityLyricsImportLifecycleTest {
     // ShadowMediaController exposes a public setter but a protected metadata getter.
     @Suppress("UsePropertyAccessSyntax")
     @Test
-    fun neteaseDisplayIdentityIsSharedByMediaCardsAndLyricsImportTarget() {
+    fun neteaseDisplayIdentityIsSharedByNowPlayingAndLyricsImportTarget() {
         installCurrentMedia(SONG)
         val manager = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
         val mediaController = manager.getActiveSessions(null).single()
@@ -94,7 +94,7 @@ class MainActivityLyricsImportLifecycleTest {
         activity.graph.uiInvalidator.rebuildCurrentPage(animateContent = false, animateTabs = false)
         val mediaTexts = activity.visibleTexts()
         assertTrue(mediaTexts.contains("再见太难"))
-        assertTrue(mediaTexts.contains("再见太难 - 利得汇"))
+        assertTrue(mediaTexts.contains("利得汇 · ${activity.graph.uiHost.getAppName("com.netease.cloudmusic")}"))
         assertTrue(mediaTexts.none { it.contains("说再见太难") })
 
         showLyricsSettings(activity)

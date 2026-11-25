@@ -8,10 +8,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.view.isGone
 
-/** Action groups fit text, swatches fit available width, and setting tiles keep fixed columns. */
+/** Action groups fit text. Swatches and setting tiles fit the available width. */
 internal sealed interface GridColumnPolicy {
     data object Content : GridColumnPolicy
-    data object Fixed : GridColumnPolicy
     data class Width(val minCellDp: Int) : GridColumnPolicy
 }
 
@@ -43,8 +42,7 @@ internal open class AdaptiveGridLayout(
             } + horizontalGap * (children.size - 1).coerceAtLeast(0) + paddingLeft + paddingRight
         } else MeasureSpec.getSize(widthMeasureSpec)
         val available = (width - paddingLeft - paddingRight).coerceAtLeast(0)
-        columns = maxColumns.coerceAtLeast(1)
-        if (columnPolicy != GridColumnPolicy.Fixed) columns = columns.coerceAtMost(children.size.coerceAtLeast(1))
+        columns = maxColumns.coerceIn(1, children.size.coerceAtLeast(1))
         if (columnPolicy is GridColumnPolicy.Width) {
             val minWidth = columnPolicy.minCellDp * resources.displayMetrics.density *
                 resources.configuration.fontScale.coerceAtLeast(1f)

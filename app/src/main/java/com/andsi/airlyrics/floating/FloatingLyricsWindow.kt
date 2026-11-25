@@ -1,8 +1,5 @@
 package com.andsi.airlyrics.floating
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
-import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Color
@@ -13,16 +10,23 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.text.TextWatcher
 import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.VelocityTracker
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.HapticFeedbackConstants
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.WindowInsets
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.TextView
+import androidx.core.widget.doAfterTextChanged
+import androidx.dynamicanimation.animation.FloatValueHolder
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 import com.andsi.airlyrics.R
 import com.andsi.airlyrics.core.color.AirColorUtils
 import com.andsi.airlyrics.core.model.FloatingPosition
@@ -33,6 +37,8 @@ import com.andsi.airlyrics.settings.store.FloatingOverlayStore.DockSide
 import com.andsi.airlyrics.settings.store.LyricsDisplaySettingsStore
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+private val defaultFloatingPosition = FloatingPosition(0.5f, 0.56f)
 
 /**
  * Owns the floating lyrics window itself: creation, removal, dragging,
@@ -58,7 +64,14 @@ class FloatingLyricsWindow(
     private var params: WindowManager.LayoutParams? = null
     private var position: FloatingPosition? = null
     private var geometry: FloatingWindowGeometry? = null
-    private var attachedView: View? = null
+    private var surface: FrameLayout? = null
+    private var surfaceParams: WindowManager.LayoutParams? = null
+    private var surfaceAttached = false
+    private val shell = GradientDrawable()
+    private var cardFill = Color.TRANSPARENT
+    private var cardRadius = 0f
+    private var textWatcher: TextWatcher? = null
+    private var lyricNeedsMeasure = false
     private var dockHandle: TextView? = null
     private var overlayGeometry = FloatingOverlayStore.Geometry()
     private var editor: FloatingOverlayEditControls? = null
@@ -67,8 +80,12 @@ class FloatingLyricsWindow(
     private var editSnapshot: EditSnapshot? = null
     private var editTextSizeSp: Float? = null
     private val holdGesture = StationaryHoldGesture(touchSlop)
-    private var transitionGeneration = 0
-    private var transitionAnimator: ObjectAnimator? = null
+    private var transition: SpringAnimation? = null
+    private var drawnFrame: SurfaceFrame? = null
+    private var caughtFrame: SurfaceFrame? = null
+    private var pendingFrame: SurfaceFrame? = null
+    private var dragVelocity: VelocityTracker? = null
+    private val drawDragFrame = Runnable { flushDragFrame() }
     var onInteractionChanged: (() -> Unit)? = null
     var isPresentationVisible: Boolean = true
         private set
@@ -80,6 +97,7 @@ class FloatingLyricsWindow(
         val position: FloatingPosition?,
         val textSizeSp: Float
     )
+    private data class SurfaceFrame(val bounds: Rect, val dockAmount: Float)
     private val holdRunnable = Runnable {
         if (holdGesture.consume() && gestureActive && !dragging && !isEditing &&
             isPresentationVisible && !FloatingLyricsStyleStore.isLocked(context) &&
@@ -98,21 +116,22 @@ class FloatingLyricsWindow(
         updateLayout(remap)
     }
     private val layoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-        scheduleLayout()
+        if (!dragging && caughtFrame == null && transition == null) scheduleLayout()
     }
 
     fun onConfigurationChanged() {
         cancelGesture()
         if (isEditing) finishEditMode(commit = false)
         cancelTransition()
+        caughtFrame = null
         scheduleLayout(remap = true)
     }
 
     private fun scheduleLayout(remap: Boolean = false) {
-        val view = lyricsView ?: return
+        val view = surface ?: return
         remapPending = remapPending || remap
         view.removeCallbacks(refreshLayout)
-        view.post(refreshLayout)
+        if (resizeActive) view.postOnAnimation(refreshLayout) else view.post(refreshLayout)
     }
 
     private var startX = 0
@@ -162,6 +181,9 @@ class FloatingLyricsWindow(
         return runCatching {
             lyricsView = view
             params = layoutParams
+            dockHandle = createDockHandle()
+            surface = createSurface(view, requireNotNull(dockHandle))
+            surfaceParams = auxiliaryParams().apply { flags = windowFlagsForCurrentBehavior() }
             position = FloatingLyricsStyleStore.getRelativePosition(context)
             applyStyle(view)
             overlayGeometry = FloatingOverlayStore.geometry(context)
@@ -181,6 +203,10 @@ class FloatingLyricsWindow(
             }
             view.onWindowConfigurationChanged = ::onConfigurationChanged
             view.addOnLayoutChangeListener(layoutListener)
+            textWatcher = view.doAfterTextChanged {
+                lyricNeedsMeasure = true
+                if (!dragging && transition == null && caughtFrame == null) scheduleLayout()
+            }
             view.setOnApplyWindowInsetsListener { _, insets ->
                 scheduleLayout()
                 insets
@@ -201,7 +227,10 @@ class FloatingLyricsWindow(
         removeEditor()
         editSnapshot = null
         editTextSizeSp = null
-        view?.removeCallbacks(refreshLayout)
+        surface?.removeCallbacks(refreshLayout)
+        textWatcher?.let { view?.removeTextChangedListener(it) }
+        textWatcher = null
+        lyricNeedsMeasure = false
         view?.removeOnLayoutChangeListener(layoutListener)
         view?.setOnApplyWindowInsetsListener(null)
         (view as? FloatingLyricsTextView)?.onWindowConfigurationChanged = null
@@ -211,6 +240,10 @@ class FloatingLyricsWindow(
         position = null
         val removed = detachSurface()
         dockHandle = null
+        surface = null
+        surfaceParams = null
+        drawnFrame = null
+        caughtFrame = null
 
         lyricsView = null
         params = null
@@ -225,6 +258,7 @@ class FloatingLyricsWindow(
         val p = params ?: return true
         return runCatching {
             cancelGesture()
+            caughtFrame = null
             if (!isEditing) {
                 overlayGeometry = FloatingOverlayStore.geometry(context)
                 if (!FloatingOverlayStore.isDockingEnabled(context)) {
@@ -234,11 +268,8 @@ class FloatingLyricsWindow(
                 }
             }
             applyStyle(view)
-            if (isPresentationVisible && isVisible && ((attachedView === view) == isDocked)) {
-                attachCurrentSurface()
-            }
-            if (calculateLayout(view, p, remap = true) && attachedView === view) windowManager.updateViewLayout(view, p)
-            updateDockLayout()
+            calculateLayout(view, p, remap = true)
+            if (isPresentationVisible && transition == null && caughtFrame == null) attachCurrentSurface()
             updateEditorLayout()
             onInteractionChanged?.invoke()
             true
@@ -275,6 +306,8 @@ class FloatingLyricsWindow(
         return when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 cancelGesture()
+                cancelTransition()
+                dragVelocity = VelocityTracker.obtain().also { it.addMovement(event) }
                 gestureActive = true
                 dragging = false
                 startX = p.x
@@ -290,7 +323,9 @@ class FloatingLyricsWindow(
             MotionEvent.ACTION_MOVE -> {
                 if (!holdGesture.move(event.rawX, event.rawY)) view.removeCallbacks(holdRunnable)
                 if (isLocked || !gestureActive) return true
+                dragVelocity?.addMovement(event)
                 if (!dragging && isClick(event)) return true
+                if (!dragging) surface?.removeCallbacks(refreshLayout)
                 dragging = true
                 val bounds = geometry ?: return true
                 val dx = (event.rawX - touchStartX).toInt() *
@@ -300,8 +335,7 @@ class FloatingLyricsWindow(
                 if (p.x != x || p.y != y) {
                     p.x = x
                     p.y = y
-                    runCatching { windowManager.updateViewLayout(view, p); updateEditorLayout() }
-                        .onFailure { hideAfterFailure() }
+                    expandedFrame()?.let(::queueDragFrame)
                 }
                 // Push beyond the physical edge to dock immediately, even during a slow drag.
                 // Overshoot distinguishes docking from simply positioning the window near an edge.
@@ -315,9 +349,15 @@ class FloatingLyricsWindow(
                         else -> DockSide.NONE
                     }
                     if (side != DockSide.NONE) {
+                        flushDragFrame()
                         saveDraggedPosition(p)
+                        val speed = dragVelocity?.let {
+                            it.computeCurrentVelocity(1_000)
+                            abs(it.xVelocity)
+                        } ?: 0f
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                         cancelGesture()
-                        dock(side)
+                        dock(side, speed)
                     }
                 }
                 true
@@ -328,7 +368,9 @@ class FloatingLyricsWindow(
                 if (!gestureActive) { cancelGesture(); return true }
                 if (!dragging && isClick(event)) performLyricClick(view, event, isLocked)
                 if (!isLocked && dragging) {
+                    flushDragFrame()
                     if (isEditing) updateDraftPosition(p) else saveDraggedPosition(p)
+                    scheduleLayout()
                 }
                 cancelGesture()
                 true
@@ -363,6 +405,10 @@ class FloatingLyricsWindow(
 
     private fun cancelGesture() {
         lyricsView?.removeCallbacks(holdRunnable)
+        surface?.removeCallbacks(drawDragFrame)
+        pendingFrame = null
+        dragVelocity?.recycle()
+        dragVelocity = null
         holdGesture.cancel()
         gestureActive = false
         dragging = false
@@ -386,10 +432,10 @@ class FloatingLyricsWindow(
         view.setTextColor(style.textColor)
         view.gravity = style.gravity
         view.textAlignment = View.TEXT_ALIGNMENT_GRAVITY
-        view.setPadding(
+        view.setPaddingRelative(
             dp(style.paddingHorizontalDp),
             dp(style.paddingVerticalDp),
-            dp(style.paddingHorizontalDp),
+            dp(style.paddingHorizontalDp + if (isEditing) 18 else 0),
             dp(style.paddingVerticalDp)
         )
 
@@ -404,16 +450,14 @@ class FloatingLyricsWindow(
             view.setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
         }
 
-        view.background = if (style.backgroundEnabled || isEditing) {
-            GradientDrawable().apply {
-                cornerRadius = dp(style.cornerRadiusDp).toFloat()
-                setColor(if (style.backgroundEnabled) AirColorUtils.withAlpha(style.backgroundColor, style.backgroundAlpha)
-                    else Color.argb(210, 24, 29, 38))
-                if (isEditing) setStroke(dp(2).coerceAtLeast(1), Color.WHITE)
-            }
-        } else {
-            null
+        cardRadius = dp(style.cornerRadiusDp).toFloat()
+        cardFill = when {
+            style.backgroundEnabled -> AirColorUtils.withAlpha(style.backgroundColor, style.backgroundAlpha)
+            isEditing -> Color.argb(224, 24, 29, 38)
+            else -> Color.TRANSPARENT
         }
+        dockHandle?.setTextColor(style.textColor or Color.BLACK)
+        shell.setStroke(if (isEditing) dp(1).coerceAtLeast(1) else 0, Color.argb(130, 255, 255, 255))
     }
 
     private fun saveDraggedPosition(p: WindowManager.LayoutParams) {
@@ -434,8 +478,8 @@ class FloatingLyricsWindow(
         val p = params ?: return
         runCatching {
             if (remap) applyStyle(view)
-            if (calculateLayout(view, p, remap) && attachedView === view) windowManager.updateViewLayout(view, p)
-            updateDockLayout()
+            calculateLayout(view, p, remap)
+            if (surfaceAttached && transition == null && caughtFrame == null) paintRestingSurface()
             updateEditorLayout()
         }.onFailure {
             Log.w("FloatingLyricsWindow", "Unable to update overlay geometry", it)
@@ -469,7 +513,8 @@ class FloatingLyricsWindow(
 
     private fun calculateLayout(view: TextView, p: WindowManager.LayoutParams, remap: Boolean): Boolean {
         val (availableWidth, fullHeight) = availableSize(view)
-        val availableHeight = if (isEditing) (fullHeight - dp(144)).coerceAtLeast(dp(48).coerceAtMost(fullHeight)) else fullHeight
+        val editorRoom = editor?.let { measureToolbar(it, availableWidth) + dp(8) } ?: 0
+        val availableHeight = (fullHeight - editorRoom).coerceAtLeast(dp(48).coerceAtMost(fullHeight))
         val width = overlayGeometry.widthFraction?.let {
             FloatingWindowGeometry.dimension(availableWidth, it, dp(144))
         } ?: FloatingWindowGeometry.width(availableWidth, FloatingLyricsStyleStore.getStyle(context).maxWidthPercent)
@@ -479,6 +524,10 @@ class FloatingLyricsWindow(
         if (view.minWidth != width) view.minWidth = width
         if (view.maxWidth != width) view.maxWidth = width
         if (view.maxHeight != availableHeight) view.maxHeight = availableHeight
+        if (lyricNeedsMeasure) {
+            view.forceLayout()
+            lyricNeedsMeasure = false
+        }
         view.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(availableHeight, View.MeasureSpec.AT_MOST)
@@ -490,10 +539,10 @@ class FloatingLyricsWindow(
             previous.availableHeight != availableHeight
         if (areaChanged) cancelGesture()
         val relative = position ?: run {
-            val (x, y) = FloatingLyricsStyleStore.getPosition(context)
             val initial = if (FloatingLyricsStyleStore.hasLegacyPosition(context)) {
+                val (x, y) = FloatingLyricsStyleStore.getPosition(context)
                 next.migrate(x, y, touchSlop)
-            } else next.position(0, y, FloatingPosition(0.5f, 0f)).copy(horizontal = 0.5f)
+            } else defaultFloatingPosition
             // Pre-30 must wait for the fitted frame before migrating pixels permanently.
             if (Build.VERSION.SDK_INT >= 30 || view.isAttachedToWindow) {
                 position = initial
@@ -501,7 +550,7 @@ class FloatingLyricsWindow(
             }
             initial
         }
-        val (x, y) = if (remap || areaChanged || previous.width != width) {
+        val (x, y) = if (remap || areaChanged || !isEditing && previous.width != width) {
             next.coordinates(relative)
         } else p.x.coerceIn(0, next.travelX) to p.y.coerceIn(0, next.travelY)
         val desiredHeight = fixedHeight ?: WindowManager.LayoutParams.WRAP_CONTENT
@@ -515,20 +564,13 @@ class FloatingLyricsWindow(
     }
 
     private fun updateWindowBehavior(): Boolean {
-        val view = lyricsView ?: return true
-        val p = params ?: return true
+        val view = surface ?: return true
+        val p = surfaceParams ?: return true
         return runCatching {
             val flags = windowFlagsForCurrentBehavior()
             if (p.flags != flags) {
                 p.flags = flags
-                if (attachedView === view) windowManager.updateViewLayout(view, p)
-            }
-            dockHandle?.let { handle ->
-                val hp = handle.layoutParams as? WindowManager.LayoutParams
-                if (hp != null && hp.flags != flags) {
-                    hp.flags = flags
-                    if (attachedView === handle) windowManager.updateViewLayout(handle, hp)
-                }
+                if (surfaceAttached) windowManager.updateViewLayout(view, p)
             }
             true
         }.getOrElse {
@@ -543,6 +585,7 @@ class FloatingLyricsWindow(
         isPresentationVisible = visible
         cancelGesture()
         cancelTransition()
+        caughtFrame = null
         if (!visible) {
             if (isEditing) finishEditMode(commit = false)
             removeEditor()
@@ -574,7 +617,7 @@ class FloatingLyricsWindow(
                 cancel = { finishEditMode(commit = false) },
                 reset = {
                     overlayGeometry = FloatingOverlayStore.Geometry()
-                    position = FloatingPosition(0.5f, 0.2f)
+                    position = defaultFloatingPosition
                     editTextSizeSp = editSnapshot?.textSizeSp
                     updateLayout(remap = true)
                 },
@@ -630,16 +673,25 @@ class FloatingLyricsWindow(
         val view = lyricsView ?: return
         if (!isEditing) return
         val fullHeight = availableSize(view).second
-        val width = (bounds.width + dp(widthDp)).coerceIn(dp(144).coerceAtMost(bounds.availableWidth), bounds.availableWidth)
-        val height = (bounds.height + dp(heightDp)).coerceIn(dp(48).coerceAtMost(bounds.availableHeight), bounds.availableHeight)
-        overlayGeometry = overlayGeometry.copy(widthFraction = width.toFloat() / bounds.availableWidth,
-            heightFraction = height.toFloat() / fullHeight)
+        resizeDraft(bounds, bounds.width + dp(widthDp), bounds.height + dp(heightDp), fullHeight)
         updateLayout(remap = false)
     }
 
     private fun changeDraftTextSize(delta: Float) {
         editTextSizeSp = ((editTextSizeSp ?: return) + delta).coerceIn(14f, 56f)
-        updateLayout(remap = true)
+        lyricsView?.let(::applyStyle)
+        updateLayout(remap = false)
+        params?.let(::updateDraftPosition)
+    }
+
+    private fun resizeDraft(bounds: FloatingWindowGeometry, width: Int, height: Int, fullHeight: Int) {
+        val layout = params ?: return
+        val maxWidth = (bounds.availableWidth - layout.x).coerceAtLeast(1)
+        val maxHeight = (bounds.availableHeight - layout.y).coerceAtLeast(1)
+        val fittedWidth = width.coerceIn(dp(144).coerceIn(1, maxWidth), maxWidth)
+        val fittedHeight = height.coerceIn(dp(48).coerceIn(1, maxHeight), maxHeight)
+        overlayGeometry = overlayGeometry.copy(widthFraction = fittedWidth.toFloat() / bounds.availableWidth,
+            heightFraction = fittedHeight.toFloat() / fullHeight)
     }
 
     private var resizeStartWidth = 0
@@ -663,64 +715,57 @@ class FloatingLyricsWindow(
                 val fullHeight = availableSize(lyricsView ?: return true).second
                 val rtl = lyricsView?.layoutDirection == View.LAYOUT_DIRECTION_RTL
                 val width = (resizeStartWidth + (event.rawX - resizeTouchX).toInt() * if (rtl) -1 else 1)
-                    .coerceIn(dp(144).coerceAtMost(bounds.availableWidth), bounds.availableWidth)
                 val height = (resizeStartHeight + (event.rawY - resizeTouchY).toInt())
-                    .coerceIn(dp(48).coerceAtMost(bounds.availableHeight), bounds.availableHeight)
-                overlayGeometry = overlayGeometry.copy(
-                    widthFraction = width.toFloat() / bounds.availableWidth,
-                    heightFraction = height.toFloat() / fullHeight)
-                updateLayout(remap = false)
+                resizeDraft(bounds, width, height, fullHeight)
+                scheduleLayout()
             }
-            MotionEvent.ACTION_UP -> { resizeActive = false; editor?.resizeHandle?.performClick() }
+            MotionEvent.ACTION_UP -> {
+                resizeActive = false
+                surface?.removeCallbacks(refreshLayout)
+                updateLayout(remap = false)
+                editor?.resizeHandle?.performClick()
+            }
             MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> resizeActive = false
         }
         return true
     }
 
     /** Physical left/right docking is intentionally independent of the lyric's text direction. */
-    fun dock(side: DockSide) {
+    fun dock(side: DockSide, velocityPxPerSecond: Float = 0f) {
         if (side == DockSide.NONE || !isContentVisible || isEditing ||
             !FloatingOverlayStore.isDockingEnabled(context) || FloatingLyricsStyleStore.isClickThrough(context)) return
+        val from = drawnFrame ?: expandedFrame() ?: return
+        val bounds = geometry ?: return
+        val travel = (bounds.availableHeight - dp(64)).coerceAtLeast(0)
+        val vertical = if (travel > 0) {
+            ((from.bounds.exactCenterY() - dp(32)) / travel).coerceIn(0f, 1f)
+        } else 0.5f
         cancelGesture()
-        cancelTransition()
-        val view = lyricsView ?: return
-        val target = if (side == DockSide.LEFT) -view.width.toFloat() else view.width.toFloat()
-        val generation = transitionGeneration
-        fun complete() {
-            if (generation != transitionGeneration || !isVisible || !isPresentationVisible) return
-            if (!FloatingOverlayStore.isDockingEnabled(context)) {
-                view.translationX = 0f
-                return
-            }
-            val (_, areaHeight) = availableSize(view)
-            val p = params ?: return
-            val height = geometry?.height ?: view.height
-            val vertical = if (areaHeight > dp(64))
-                ((p.y + height / 2f - dp(32)) / (areaHeight - dp(64))).coerceIn(0f, 1f) else 0.5f
-            overlayGeometry = overlayGeometry.copy(dockSide = side, dockVerticalFraction = vertical)
-            FloatingOverlayStore.saveGeometry(context, overlayGeometry)
-            view.translationX = 0f
-            runCatching { attachCurrentSurface() }.onFailure { hideAfterFailure() }
-            onInteractionChanged?.invoke()
-        }
-        if (animationsEnabled() && view.isAttachedToWindow) {
-            animateTranslation(view, view.translationX, target) { complete() }
-        } else complete()
+        overlayGeometry = overlayGeometry.copy(dockSide = side, dockVerticalFraction = vertical)
+        FloatingOverlayStore.saveGeometry(context, overlayGeometry)
+        runCatching {
+            setDockLabel(side)
+            restingFrame()?.let { animateSurface(from, it, velocityPxPerSecond) }
+        }.onFailure { hideAfterFailure() }
+        onInteractionChanged?.invoke()
     }
 
     fun expand(animate: Boolean = true) {
-        if (!isDocked) return
-        val side = overlayGeometry.dockSide
+        if (isDocked) finishExpansion(animate)
+    }
+
+    private fun finishExpansion(animate: Boolean) {
+        val from = drawnFrame ?: restingFrame() ?: return
+        val lyrics = lyricsView ?: return
+        val layout = params ?: return
+        cancelGesture()
         cancelTransition()
         overlayGeometry = overlayGeometry.copy(dockSide = DockSide.NONE)
         FloatingOverlayStore.saveGeometry(context, overlayGeometry)
         runCatching {
-            if (isPresentationVisible) attachCurrentSurface()
-            updateLayout(remap = true)
-            val view = lyricsView ?: return
-            if (animate && isPresentationVisible && animationsEnabled()) {
-                val from = if (side == DockSide.LEFT) -view.width.toFloat() else view.width.toFloat()
-                animateTranslation(view, from, 0f)
+            calculateLayout(lyrics, layout, remap = true)
+            expandedFrame()?.let { target ->
+                if (animate) animateSurface(from, target) else paintSurface(target)
             }
         }.onFailure { hideAfterFailure() }
         onInteractionChanged?.invoke()
@@ -730,28 +775,47 @@ class FloatingLyricsWindow(
         !(context.getSystemService(Context.POWER_SERVICE) as PowerManager).isPowerSaveMode &&
         !LyricsDisplaySettingsStore.isMinimalMotion(context)
 
-    private fun animateTranslation(view: View, from: Float, to: Float, complete: () -> Unit = {}) {
-        // Own a separate animator: the lyric renderer legitimately cancels View.animate() on line changes.
-        val generation = transitionGeneration
-        transitionAnimator = ObjectAnimator.ofFloat(view, View.TRANSLATION_X, from, to).apply {
-            duration = 180L
-            interpolator = android.view.animation.DecelerateInterpolator()
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    if (generation != transitionGeneration) return
-                    transitionAnimator = null
-                    complete()
-                }
-            })
-            start()
+    private fun animateSurface(from: SurfaceFrame, to: SurfaceFrame, velocityPxPerSecond: Float = 0f) {
+        cancelTransition()
+        val area = geometry ?: return
+        if (from == to || !surfaceAttached || !animationsEnabled()) {
+            paintSurface(to)
+            return
         }
+        val travel = abs(to.bounds.left - from.bounds.left) + abs(to.bounds.width() - from.bounds.width())
+        val initialVelocity = (velocityPxPerSecond / travel.coerceAtLeast(dp(48))).coerceIn(0f, 4f)
+        transition = SpringAnimation(FloatValueHolder(0f)).apply {
+            spring = SpringForce(1f).apply {
+                dampingRatio = 0.78f
+                stiffness = 560f
+            }
+            setMinimumVisibleChange(0.003f)
+            setStartVelocity(initialVelocity)
+            addUpdateListener { _, progress, _ ->
+                fun blend(start: Int, end: Int) = (start + (end - start) * progress).roundToInt()
+                val width = blend(from.bounds.width(), to.bounds.width()).coerceIn(1, area.availableWidth)
+                val height = blend(from.bounds.height(), to.bounds.height()).coerceIn(1, area.availableHeight)
+                val x = blend(from.bounds.left, to.bounds.left).coerceIn(0, area.availableWidth - width)
+                val y = blend(from.bounds.top, to.bounds.top).coerceIn(0, area.availableHeight - height)
+                val dockAmount = (from.dockAmount + (to.dockAmount - from.dockAmount) * progress).coerceIn(0f, 1f)
+                runCatching { paintSurface(SurfaceFrame(Rect(x, y, x + width, y + height), dockAmount)) }
+                    .onFailure { hideAfterFailure() }
+            }
+            addEndListener { animation, canceled, _, _ ->
+                if (transition === animation) transition = null
+                if (!canceled) {
+                    runCatching { paintSurface(to) }.onFailure { hideAfterFailure() }
+                    scheduleLayout()
+                }
+            }
+        }
+        transition?.start()
     }
 
     private fun cancelTransition() {
-        transitionGeneration++
-        transitionAnimator?.cancel()
-        transitionAnimator = null
-        lyricsView?.translationX = 0f
+        val animation = transition ?: return
+        transition = null
+        animation.cancel()
     }
 
     private fun auxiliaryParams() = WindowManager.LayoutParams(
@@ -770,10 +834,6 @@ class FloatingLyricsWindow(
         gravity = Gravity.CENTER
         textSize = 24f
         setTextColor(Color.WHITE)
-        background = GradientDrawable().apply {
-            cornerRadius = dp(24).toFloat()
-            setColor(Color.argb(230, 24, 29, 38))
-        }
         contentDescription = context.getString(R.string.ui_overlay_expand)
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         isClickable = true
@@ -824,56 +884,161 @@ class FloatingLyricsWindow(
         })
     }
 
+    private fun createSurface(lyrics: View, handle: View): FrameLayout = object : FrameLayout(windowContext) {
+        override fun onInterceptTouchEvent(event: MotionEvent): Boolean =
+            event.actionMasked == MotionEvent.ACTION_DOWN && transition != null &&
+                !FloatingLyricsStyleStore.isLocked(context) || super.onInterceptTouchEvent(event)
+    }.apply {
+        background = shell
+        clipToOutline = true
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        addView(lyrics, FrameLayout.LayoutParams(1, 1, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+        addView(handle, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        setOnTouchListener { _, event -> handleTransitionTouch(event) }
+    }
+
     private fun attachCurrentSurface() {
-        val view = lyricsView ?: return
+        val view = surface ?: return
+        val layout = surfaceParams ?: return
         if (!isPresentationVisible) return
-        val surface: View
-        val surfaceParams: WindowManager.LayoutParams
-        if (isDocked) {
-            val handle = dockHandle ?: createDockHandle().also { dockHandle = it }
-            handle.text = if (overlayGeometry.dockSide == DockSide.LEFT) "›" else "‹"
-            surface = handle
-            surfaceParams = (handle.layoutParams as? WindowManager.LayoutParams) ?: auxiliaryParams()
-            surfaceParams.flags = windowFlagsForCurrentBehavior()
-            surfaceParams.width = dp(48)
-            surfaceParams.height = dp(64)
-            positionDockHandle(surfaceParams)
-        } else {
-            surface = view
-            surfaceParams = params ?: return
-            applyStyle(view)
-            calculateLayout(view, surfaceParams, remap = true)
-        }
-        if (attachedView === surface) {
-            windowManager.updateViewLayout(surface, surfaceParams)
-        } else {
-            detachSurface()
-            windowManager.addView(surface, surfaceParams)
-            attachedView = surface
+        paintRestingSurface()
+        if (!surfaceAttached) {
+            windowManager.addView(view, layout)
+            surfaceAttached = true
+            lyricsView?.requestApplyInsets()
         }
     }
 
     private fun detachSurface(): Boolean {
-        val previous = attachedView ?: return true
-        attachedView = null
-        return runCatching { windowManager.removeView(previous) }.isSuccess
+        val view = surface ?: return true
+        if (!surfaceAttached) return true
+        surfaceAttached = false
+        return runCatching { windowManager.removeView(view) }.isSuccess
     }
 
-    private fun positionDockHandle(p: WindowManager.LayoutParams) {
-        val view = lyricsView ?: return
-        val (width, height) = availableSize(view)
-        p.x = if (overlayGeometry.dockSide == DockSide.LEFT) 0 else (width - p.width).coerceAtLeast(0)
-        p.y = ((height - p.height).coerceAtLeast(0) * overlayGeometry.dockVerticalFraction).roundToInt()
+    private fun setDockLabel(side: DockSide) {
+        dockHandle?.text = if (side == DockSide.LEFT) "›" else "‹"
     }
 
-    private fun updateDockLayout() {
-        val handle = dockHandle ?: return
-        if (attachedView !== handle) return
-        val p = handle.layoutParams as? WindowManager.LayoutParams ?: return
-        val previousX = p.x
-        val previousY = p.y
-        positionDockHandle(p)
-        if (previousX != p.x || previousY != p.y) windowManager.updateViewLayout(handle, p)
+    private fun expandedFrame(): SurfaceFrame? {
+        val layout = params ?: return null
+        val bounds = geometry ?: return null
+        val x = if (lyricsView?.layoutDirection == View.LAYOUT_DIRECTION_RTL) bounds.travelX - layout.x else layout.x
+        return SurfaceFrame(Rect(x, layout.y, x + bounds.width, layout.y + bounds.height), 0f)
+    }
+
+    private fun restingFrame(): SurfaceFrame? {
+        if (!isDocked) return expandedFrame()
+        val area = geometry ?: return null
+        val width = dp(48).coerceAtMost(area.availableWidth)
+        val height = dp(64).coerceAtMost(area.availableHeight)
+        val x = if (overlayGeometry.dockSide == DockSide.LEFT) 0 else area.availableWidth - width
+        val y = ((area.availableHeight - height) * overlayGeometry.dockVerticalFraction).roundToInt()
+        return SurfaceFrame(Rect(x, y, x + width, y + height), 1f)
+    }
+
+    private fun paintRestingSurface() {
+        if (isDocked) setDockLabel(overlayGeometry.dockSide)
+        restingFrame()?.let(::paintSurface)
+    }
+
+    private fun paintSurface(frame: SurfaceFrame) {
+        val view = surface ?: return
+        val p = surfaceParams ?: return
+        val bounds = geometry ?: return
+        val rect = frame.bounds
+        val changed = p.x != rect.left || p.y != rect.top || p.width != rect.width() || p.height != rect.height()
+        p.x = rect.left
+        p.y = rect.top
+        p.width = rect.width()
+        p.height = rect.height()
+        drawnFrame = frame
+        val amount = frame.dockAmount
+        val dockFill = if (Color.alpha(cardFill) == 0) Color.argb(235, 24, 29, 38) else
+            AirColorUtils.withAlpha(cardFill, Color.alpha(cardFill).coerceAtLeast(235))
+        val fill = androidx.core.graphics.ColorUtils.blendARGB(cardFill, dockFill, amount)
+        val radius = cardRadius + (dp(24) - cardRadius) * amount
+        if (shell.color?.defaultColor != fill) shell.setColor(fill)
+        if (shell.cornerRadius != radius) {
+            shell.cornerRadius = radius
+            view.invalidateOutline()
+        }
+        lyricsView?.let {
+            val child = it.layoutParams
+            if (child.width != bounds.width || child.height != bounds.height) {
+                child.width = bounds.width
+                child.height = bounds.height
+                it.layoutParams = child
+            }
+            it.visibility = if (amount < 1f) View.VISIBLE else View.GONE
+            it.alpha = (1f - amount * 1.6f).coerceIn(0f, 1f)
+            it.importantForAccessibility = if (amount < 0.5f) View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+                else View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        dockHandle?.let {
+            it.visibility = if (amount > 0f) View.VISIBLE else View.GONE
+            it.alpha = ((amount - 0.35f) / 0.65f).coerceIn(0f, 1f)
+            it.importantForAccessibility = if (amount >= 0.5f) View.IMPORTANT_FOR_ACCESSIBILITY_YES
+                else View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        if (changed && surfaceAttached) windowManager.updateViewLayout(view, p)
+    }
+
+    private fun queueDragFrame(frame: SurfaceFrame) {
+        if (pendingFrame == null) surface?.postOnAnimation(drawDragFrame)
+        pendingFrame = frame
+    }
+
+    private fun flushDragFrame() {
+        val frame = pendingFrame ?: return
+        surface?.removeCallbacks(drawDragFrame)
+        pendingFrame = null
+        runCatching { paintSurface(frame); updateEditorLayout() }.onFailure { hideAfterFailure() }
+    }
+
+    private fun handleTransitionTouch(event: MotionEvent): Boolean {
+        val area = geometry ?: return false
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                if (transition == null) return false
+                val frame = drawnFrame ?: return false
+                cancelTransition()
+                caughtFrame = frame
+                touchStartX = event.rawX
+                touchStartY = event.rawY
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val start = caughtFrame ?: return false
+                val rect = Rect(start.bounds)
+                rect.offsetTo(
+                    (start.bounds.left + (event.rawX - touchStartX).roundToInt())
+                        .coerceIn(0, (area.availableWidth - rect.width()).coerceAtLeast(0)),
+                    (start.bounds.top + (event.rawY - touchStartY).roundToInt())
+                        .coerceIn(0, (area.availableHeight - rect.height()).coerceAtLeast(0))
+                )
+                queueDragFrame(SurfaceFrame(rect, start.dockAmount))
+            }
+            MotionEvent.ACTION_UP -> {
+                if (caughtFrame == null) return false
+                flushDragFrame()
+                val rect = drawnFrame?.bounds ?: return false
+                val x = (rect.centerX() - area.width / 2).coerceIn(0, area.travelX)
+                val y = (rect.centerY() - area.height / 2).coerceIn(0, area.travelY)
+                val logicalX = if (lyricsView?.layoutDirection == View.LAYOUT_DIRECTION_RTL) area.travelX - x else x
+                position = area.position(logicalX, y, position ?: FloatingPosition(0.5f, 0f)).also {
+                    FloatingLyricsStyleStore.saveRelativePosition(context, it)
+                }
+                caughtFrame = null
+                finishExpansion(animate = true)
+            }
+            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> {
+                if (caughtFrame == null) return false
+                cancelGesture()
+                caughtFrame = null
+                paintRestingSurface()
+            }
+        }
+        return true
     }
 
     private fun updateEditorLayout() {
@@ -881,15 +1046,24 @@ class FloatingLyricsWindow(
         val view = lyricsView ?: return
         val p = params ?: return
         val (width, height) = availableSize(view)
+        val frame = expandedFrame()?.bounds ?: return
+        editTextSizeSp?.let { controls.updateTextSize(it.roundToInt()) }
+        val gap = dp(8)
         editorParams?.let { ep ->
             val previousWidth = ep.width
             val previousHeight = ep.height
             val previousX = ep.x
             val previousY = ep.y
-            ep.width = width.coerceAtMost(dp(360))
-            ep.height = dp(144).coerceAtMost(height)
-            ep.x = (width - ep.width) / 2
-            ep.y = (height - ep.height).coerceAtLeast(0)
+            ep.width = toolbarWidth(width)
+            ep.height = measureToolbar(controls, width).coerceAtMost(height)
+            ep.x = (frame.centerX() - ep.width / 2).coerceIn(0, width - ep.width)
+            val below = frame.bottom + gap
+            val above = frame.top - ep.height - gap
+            ep.y = when {
+                below + ep.height <= height -> below
+                above >= 0 -> above
+                else -> below.coerceIn(0, height - ep.height)
+            }
             if (controls.panel.isAttachedToWindow && (previousWidth != ep.width || previousHeight != ep.height ||
                 previousX != ep.x || previousY != ep.y)) windowManager.updateViewLayout(controls.panel, ep)
         }
@@ -897,7 +1071,9 @@ class FloatingLyricsWindow(
             val previousX = rp.x
             val previousY = rp.y
             // Params.x is relative to START; auxiliary windows use physical LEFT.
-            val physicalX = if (view.layoutDirection == View.LAYOUT_DIRECTION_RTL) width - p.x - p.width else p.x
+            val rtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            val physicalX = frame.left
+            controls.resizeHandle.text = if (rtl) "↙" else "↘"
             rp.x = (if (view.layoutDirection == View.LAYOUT_DIRECTION_RTL) physicalX else physicalX + p.width - dp(48))
                 .coerceIn(0, (width - dp(48)).coerceAtLeast(0))
             rp.y = (p.y + (geometry?.height ?: view.height) - dp(48))
@@ -905,6 +1081,16 @@ class FloatingLyricsWindow(
             if (controls.resizeHandle.isAttachedToWindow && (previousX != rp.x || previousY != rp.y))
                 windowManager.updateViewLayout(controls.resizeHandle, rp)
         }
+    }
+
+    private fun toolbarWidth(availableWidth: Int) = availableWidth.coerceAtMost(dp(300))
+
+    private fun measureToolbar(controls: FloatingOverlayEditControls, availableWidth: Int): Int {
+        controls.panel.measure(
+            View.MeasureSpec.makeMeasureSpec(toolbarWidth(availableWidth), View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        return controls.panel.measuredHeight
     }
 
     private fun removeEditor() {

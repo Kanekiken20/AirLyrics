@@ -22,7 +22,7 @@ internal fun MainUiHost.settingGridImpl(vararg items: FloatingSettingTile): Line
     return AdaptiveGridLayout(
         this, AirUiTokens.Layout.OptionColumns,
         dp(AirUiTokens.Layout.SettingGap), dp(AirUiTokens.Layout.SettingGap),
-        columnPolicy = GridColumnPolicy.Fixed
+        columnPolicy = GridColumnPolicy.Width(minCellDp = 155)
     ).apply {
         items.forEach { addView(floatingTile(it)) }
         setPadding(0, 0, 0, dp(AirUiTokens.Layout.SettingGap))

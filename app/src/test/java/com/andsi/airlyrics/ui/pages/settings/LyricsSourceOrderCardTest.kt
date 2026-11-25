@@ -452,20 +452,15 @@ class LyricsSourceOrderCardTest {
     }
 
     @Test
-    fun settingsHomeLyricsSummaryUsesSourceNamesWithoutPriorityPunctuation() {
-        val sources = PlainLyricsSearchSource.onlineSources
-        LyricsSettingsStore.setPlainLyricsSearchSources(context, sources)
+    fun settingsHomeLyricsSummaryShowsAutosaveAndKeepsSourceNamesInLyricsSettings() {
+        LyricsSettingsStore.setPlainLyricsSearchSources(context, PlainLyricsSearchSource.onlineSources)
         val activity = launchActivity()
         val host = activity.graph.uiHost
 
         val page = createSettingsHomePage(host)
-        val titles = listOf(R.string.ui_netease_cloud_music, R.string.provider_musixmatch, R.string.provider_lrclib,
-            if (com.andsi.airlyrics.lyrics.providers.SpicyLyricsProvider.isConfigured) R.string.provider_spicy else R.string.provider_spicy_unavailable,
-            R.string.provider_apple)
-            .map(host::getString)
-        val expectedSummary = "${android.icu.text.ListFormatter.getInstance(host.resources.configuration.locales[0]).format(titles)} · ${host.getString(R.string.ui_auto_save)}"
-
-        assertTrue(page.hasText(expectedSummary))
+        assertTrue(page.hasText(host.getString(R.string.ui_auto_save)))
+        assertTrue(page.hasText(host.getString(R.string.ui_lyrics_settings_summary)))
+        assertFalse(page.hasText(host.getString(R.string.provider_musixmatch)))
     }
 
     @Test

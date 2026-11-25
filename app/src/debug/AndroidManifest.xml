@@ -2,7 +2,5 @@
     xmlns:tools="http://schemas.android.com/tools">
     <application
         android:label="@string/app_test_name"
-        tools:replace="android:label">
-        <meta-data android:name="SamsungBasicInteraction" android:value="SEP10" />
-    </application>
+        tools:replace="android:label" />
 </manifest>

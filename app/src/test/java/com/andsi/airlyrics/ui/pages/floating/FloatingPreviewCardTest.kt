@@ -40,12 +40,14 @@ class FloatingPreviewCardTest {
         val host = activity.graph.uiHost
         host.windowLayout = com.andsi.airlyrics.ui.layout.WindowLayoutSpec(640f, 300f, 1f)
         var writes = 0
-        val full = android.text.SpannableString("Original\nTranslation").apply {
+        val current = android.text.SpannableString("Original\nTranslation").apply {
             setSpan(android.text.style.ForegroundColorSpan(Color.RED), 0, 8, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
+        val full = "Previous lyric\n$current"
         val handle = host.createFloatingPreviewCard(
             isExpanded = { true }, setExpanded = { writes++ }, style = { host.floatingStyle() },
-            isWordByWordLyricsEnabled = { false }, plainPreviewText = { full }, wordByWordPreviewText = { full }
+            isWordByWordLyricsEnabled = { false }, plainPreviewText = { full }, wordByWordPreviewText = { full },
+            compactPreviewText = { current }
         )
         fun measure() {
             handle.cardView.measure(android.view.View.MeasureSpec.makeMeasureSpec(500, android.view.View.MeasureSpec.EXACTLY),
@@ -54,16 +56,16 @@ class FloatingPreviewCardTest {
         measure()
         assertEquals("Original", handle.lyricTextView.text.toString())
         assertEquals(1, (handle.lyricTextView.text as android.text.Spanned).getSpans(0, 8, android.text.style.ForegroundColorSpan::class.java).size)
-        (handle.cardView as LinearLayout).getChildAt(1).performClick()
+        previewToggle(handle).performClick()
         measure()
         assertEquals(full.toString(), handle.lyricTextView.text.toString())
-        handle.cardView.getChildAt(1).performClick()
-        handle.updateText("Updated\nNew translation")
+        previewToggle(handle).performClick()
+        handle.updateText("Earlier lyric\nUpdated\nNew translation", "Updated\nNew translation")
         measure()
         assertEquals("Updated", handle.lyricTextView.text.toString())
         host.windowLayout = host.windowLayout.copy(height = 700f)
         measure()
-        assertEquals("Updated\nNew translation", handle.lyricTextView.text.toString())
+        assertEquals("Earlier lyric\nUpdated\nNew translation", handle.lyricTextView.text.toString())
         assertEquals(0, writes)
     }
 
@@ -84,9 +86,10 @@ class FloatingPreviewCardTest {
             style = { previewStyle },
             isWordByWordLyricsEnabled = { false },
             plainPreviewText = { "Preview" },
-            wordByWordPreviewText = { "Preview" }
+            wordByWordPreviewText = { "Preview" },
+            compactPreviewText = { "Preview" }
         )
-        val toggle = (handle.cardView as LinearLayout).getChildAt(1) as TextView
+        val toggle = previewToggle(handle)
 
         assertEquals(Color.WHITE, handle.lyricTextView.currentTextColor)
         assertEquals(host.colorTextMuted, toggle.currentTextColor)
@@ -106,7 +109,8 @@ class FloatingPreviewCardTest {
             style = { host.floatingStyle() },
             isWordByWordLyricsEnabled = { false },
             plainPreviewText = { full },
-            wordByWordPreviewText = { full }
+            wordByWordPreviewText = { full },
+            compactPreviewText = { full }
         )
         val width = android.view.View.MeasureSpec.makeMeasureSpec(180, android.view.View.MeasureSpec.EXACTLY)
         val height = android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED)
@@ -122,5 +126,10 @@ class FloatingPreviewCardTest {
             translationLine >= 2
         )
         assertEquals(0, textLayout.getEllipsisCount(translationLine))
+    }
+
+    private fun previewToggle(handle: FloatingPreviewCardHandle): TextView {
+        val header = (handle.cardView as LinearLayout).getChildAt(0) as LinearLayout
+        return header.getChildAt(1) as TextView
     }
 }

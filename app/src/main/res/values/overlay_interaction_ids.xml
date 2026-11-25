@@ -4,4 +4,6 @@
     <item type="id" name="overlay_resize_narrower" />
     <item type="id" name="overlay_resize_taller" />
     <item type="id" name="overlay_resize_shorter" />
+    <item type="id" name="overlay_dock_left" />
+    <item type="id" name="overlay_dock_right" />
 </resources>

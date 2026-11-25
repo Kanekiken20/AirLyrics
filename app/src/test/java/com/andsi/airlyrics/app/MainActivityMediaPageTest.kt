@@ -85,7 +85,7 @@ class MainActivityMediaPageTest {
                 val firstSnapshot = activity.graph.state.foreground.media
                 val initialOrder = listOf("player.alpha", "player.beta", "player.gamma")
                 assertEquals(initialOrder, firstSnapshot.players.map { it.packageName })
-                assertEquals(initialOrder, packages(firstPage))
+                assertEquals(initialOrder.drop(1), packages(firstPage))
                 assertSame(controllers.getValue("a2"), host.mediaPageState().selectedController)
 
                 show("c", "a2", "b", "a1")
@@ -93,32 +93,32 @@ class MainActivityMediaPageTest {
                 host.refreshMediaContent()
                 assertEquals(firstSnapshot, activity.graph.state.foreground.media)
                 assertSame(firstPage, container.getChildAt(0))
-                assertEquals(initialOrder, packages(firstPage))
+                assertEquals(initialOrder.drop(1), packages(firstPage))
                 assertSame(controllers.getValue("a2"), host.mediaPageState().selectedController)
 
                 shadowOf(controllers.getValue("a2")).setMetadata(metadata("New song", "Artist", null, null))
                 activity.graph.viewModel.refreshForegroundState()
                 host.refreshMediaContent()
                 assertSame(firstPage, container.getChildAt(0))
-                assertEquals(initialOrder, packages(firstPage))
+                assertEquals(initialOrder.drop(1), packages(firstPage))
                 assertEquals("New song", activity.graph.state.foreground.media.players.first().title)
 
                 show("e", "c", "a2", "d", "b", "a1")
                 activity.graph.viewModel.refreshForegroundState()
                 host.refreshMediaContent()
-                assertEquals(initialOrder + listOf("player.epsilon", "player.delta"),
+                assertEquals(initialOrder.drop(1) + listOf("player.epsilon", "player.delta"),
                     packages(container.getChildAt(0)))
 
                 show("d", "a1", "c", "e", "a2")
                 activity.graph.viewModel.refreshForegroundState()
                 host.refreshMediaContent()
-                assertEquals(listOf("player.alpha", "player.gamma", "player.epsilon", "player.delta"),
+                assertEquals(listOf("player.gamma", "player.epsilon", "player.delta"),
                     packages(container.getChildAt(0)))
 
                 show("b", "d", "a2", "e", "c", "a1")
                 activity.graph.viewModel.refreshForegroundState()
                 host.refreshMediaContent()
-                assertEquals(listOf("player.alpha", "player.gamma", "player.epsilon", "player.delta", "player.beta"),
+                assertEquals(listOf("player.gamma", "player.epsilon", "player.delta", "player.beta"),
                     packages(container.getChildAt(0)))
             }
         } finally {
@@ -237,7 +237,8 @@ class MainActivityMediaPageTest {
     fun playerCardRemainsClickableInsideEntranceHolder() {
         withPlayer("other.player") { host, controller ->
             shadowOf(controller).setMetadata(metadata("Song", "Artist", null, null))
-            val page = createMediaPage(host, animateContent = false)
+            val page = createMediaPage(host, animateContent = false,
+                pageState = host.mediaPageState().copy(selectedPackage = null, selectedController = null))
             val card = descendants(page).single {
                 it.getTag(com.andsi.airlyrics.R.id.interaction_anchor) ==
                     "media.player.${controller.packageName}"
@@ -250,43 +251,30 @@ class MainActivityMediaPageTest {
     }
 
     @Test
-    fun contentRefreshKeepsMountedPlayerCardAndShowsLatestSong() {
+    fun contentRefreshKeepsNowPlayingCardAndShowsLatestSongWithoutDuplicatingThePlayer() {
         withPlayer("other.player") { host, controller ->
             shadowOf(controller).setMetadata(metadata("First song", "First artist", null, null))
             host.refreshMediaContent()
             val container = host.contentContainer!!
             val page = container.getChildAt(0)
             val card = descendants(page).single {
-                it.getTag(com.andsi.airlyrics.R.id.interaction_anchor) ==
-                    "media.player.${controller.packageName}"
-            }
-            val icon = descendants(card).filterIsInstance<ImageView>().single {
-                it.layoutParams.width == host.dp(40)
+                it.getTag(com.andsi.airlyrics.R.id.interaction_anchor) == "media.current"
             }
             measurePage(page)
 
             shadowOf(controller).setMetadata(metadata("Second song", "Second artist", null, null))
             host.refreshMediaContent()
-            host.refreshMediaContent() // The same MediaSession data must not replace the view again.
+            host.refreshMediaContent()
             measurePage(page)
-            val playerSong = descendants(card).filterIsInstance<MediaRollingTextSlot>().single()
-            assertEquals("Player song roll was cancelled by layout", 0f, playerSong.textView.alpha)
-
             assertSame(page, container.getChildAt(0))
-            assertSame(card, descendants(page).single {
-                it.getTag(com.andsi.airlyrics.R.id.interaction_anchor) ==
-                    "media.player.${controller.packageName}"
+            val texts = descendants(card).filterIsInstance<TextView>().map { it.text.toString() }.toList()
+            assertTrue("Latest song missing from card: $texts", "Second song" in texts)
+            assertTrue(texts.any { it.startsWith("Second artist · ") })
+            assertTrue(descendants(page).none {
+                it.getTag(com.andsi.airlyrics.R.id.interaction_anchor) == "media.player.${controller.packageName}"
             })
-            assertSame(icon, descendants(card).filterIsInstance<ImageView>().single {
-                it.layoutParams.width == host.dp(40)
-            })
-            val texts = descendants(page).filterIsInstance<TextView>().map { it.text.toString() }
-            assertTrue("Latest song missing from page: $texts", "Second song" in texts)
-            assertTrue("Latest player song missing from page: $texts", "Second song - Second artist" in texts)
-            assertTrue(card.performClick())
         }
     }
-
     @Test
     fun rollingTitleKeepsOneViewAndSettlesAcrossLongShortAndRapidChanges() {
         withPlayer("other.player") { host, controller ->
@@ -337,21 +325,21 @@ class MainActivityMediaPageTest {
             measurePage(page)
             val title = descendants(page).filterIsInstance<MediaRollingTextSlot>()
                 .single { it.textView.text.toString() == "Same song" }
-            val playerSong = descendants(page).filterIsInstance<MediaRollingTextSlot>()
-                .single { it.textView.text.toString() == "Same song - First artist" }
+            val artist = descendants(page).filterIsInstance<MediaRollingTextSlot>()
+                .single { it.textView.text.toString().startsWith("First artist · ") }
 
             shadowOf(controller).setMetadata(metadata("Same song", "Second artist", null, null))
             host.refreshMediaContent()
             assertEquals("Same song", title.textView.text.toString())
             assertEquals(1f, title.textView.alpha)
-            assertEquals("Same song - Second artist", playerSong.textView.text.toString())
+            assertTrue(artist.textView.text.toString().startsWith("Second artist · "))
 
             shadowOf(controller).setPlaybackState(PlaybackState.Builder()
                 .setState(PlaybackState.STATE_PLAYING, 0L, 1f).build())
             host.refreshMediaContent()
             assertEquals("Same song", title.textView.text.toString())
             assertEquals(1f, title.textView.alpha)
-            assertEquals("Same song - Second artist", playerSong.textView.text.toString())
+            assertTrue(artist.textView.text.toString().startsWith("Second artist · "))
         }
     }
 

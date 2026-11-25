@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Looper
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import androidx.test.core.app.ApplicationProvider
 import com.andsi.airlyrics.core.model.FloatingPosition
@@ -64,12 +65,14 @@ class FloatingLyricsRotationTest {
         shadowOf(Looper.getMainLooper()).idle()
     }
 
+    private fun windowParams(view: View) = (view.parent as View).layoutParams as WindowManager.LayoutParams
+
     @Test fun rotationResizesWithoutReplacingViewOrChangingSavedPosition() {
         FloatingLyricsStyleStore.saveRelativePosition(application, FloatingPosition(0.5f, 0.75f))
         show()
         val view = requireNotNull(service.lyricsView)
         view.text = "A lyric that survives rotation"
-        val params = view.layoutParams as WindowManager.LayoutParams
+        val params = windowParams(view)
         val width = params.width
         val x = params.x
         val saved = FloatingLyricsStyleStore.getRelativePosition(application)
@@ -116,7 +119,7 @@ class FloatingLyricsRotationTest {
     @Test fun legacyPixelsMigrateOnceAndSurviveRotation() {
         FloatingLyricsStyleStore.savePosition(application, 0, 200)
         show()
-        val params = requireNotNull(service.lyricsView).layoutParams as WindowManager.LayoutParams
+        val params = windowParams(requireNotNull(service.lyricsView))
         assertEquals(0, params.x)
         val migrated = requireNotNull(FloatingLyricsStyleStore.getRelativePosition(application))
         rotate(true)
@@ -132,7 +135,7 @@ class FloatingLyricsRotationTest {
         show()
         assertEquals(0.5f, requireNotNull(FloatingLyricsStyleStore.getRelativePosition(application)).horizontal)
         val view = requireNotNull(service.lyricsView)
-        val params = view.layoutParams as WindowManager.LayoutParams
+        val params = windowParams(view)
         val originalWidth = params.width
         val originalX = params.x
         FloatingLyricsStyleStore.setMaxWidthPercent(application, 45)
@@ -147,7 +150,7 @@ class FloatingLyricsRotationTest {
         FloatingLyricsStyleStore.saveRelativePosition(application, saved)
         show()
         val view = requireNotNull(service.lyricsView)
-        val params = view.layoutParams as WindowManager.LayoutParams
+        val params = windowParams(view)
         val initialY = params.y
         view.text = "First line\nSecond line"
         shadowOf(Looper.getMainLooper()).idle()
@@ -160,6 +163,7 @@ class FloatingLyricsRotationTest {
     }
 
     @Test fun dragClampsAtEdgeAndRestoresAfterHide() {
+        com.andsi.airlyrics.settings.store.FloatingOverlayStore.setDockingEnabled(application, false)
         show()
         val view = requireNotNull(service.lyricsView)
         listOf(MotionEvent.ACTION_DOWN to 0f, MotionEvent.ACTION_MOVE to 10000f, MotionEvent.ACTION_UP to 10000f)
@@ -170,10 +174,10 @@ class FloatingLyricsRotationTest {
             }
         val saved = requireNotNull(FloatingLyricsStyleStore.getRelativePosition(application))
         assertEquals(1f, saved.horizontal)
-        val x = (view.layoutParams as WindowManager.LayoutParams).x
+        val x = windowParams(view).x
         service.windowController.hide()
         show()
-        assertEquals(x, (requireNotNull(service.lyricsView).layoutParams as WindowManager.LayoutParams).x)
+        assertEquals(x, windowParams(requireNotNull(service.lyricsView)).x)
         assertEquals(saved, FloatingLyricsStyleStore.getRelativePosition(application))
     }
 
@@ -182,10 +186,10 @@ class FloatingLyricsRotationTest {
         service.windowController.setLocked(true)
         service.windowController.setClickThrough(true)
         val view = requireNotNull(service.lyricsView)
-        val flags = (view.layoutParams as WindowManager.LayoutParams).flags
+        val flags = windowParams(view).flags
         rotate(true)
         assertSame(view, service.lyricsView)
-        assertEquals(flags, (view.layoutParams as WindowManager.LayoutParams).flags)
+        assertEquals(flags, windowParams(view).flags)
         assertTrue(FloatingLyricsStyleStore.isLocked(application))
     }
 }
